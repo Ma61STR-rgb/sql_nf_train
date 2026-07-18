@@ -138,9 +138,11 @@
                 <button onclick="switchTab('quiz')" id="btn-quiz" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
                     Тестирование
                 </button>
+                <!-- Временно отключено: кнопка вкладки «Кабинет» (авторизация)
                 <button onclick="switchTab('account')" id="btn-account" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
                     Кабинет
                 </button>
+                -->
             </nav>
         </div>
     </header>
@@ -467,7 +469,12 @@
             </div>
         </section>
 
-        <!-- ================= ACCOUNT TAB ================= -->
+        <!-- Вкладка «Кабинет» временно отключена (кнопка в nav закомментирована выше).
+             Секция ниже намеренно НЕ обёрнута в HTML-комментарий, т.к. внутри неё
+             уже есть свои комментарии — вложенные <!-- --> в HTML ломают разметку.
+             Секция и так недоступна: класс "hidden" снимается только через
+             switchTab('account'), а вызвать это можно было только кнопкой, которой
+             больше нет в интерфейсе. Чтобы вернуть — раскомментируй кнопку в nav. -->
         <section id="tab-account" class="tab-content hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 max-w-md mx-auto">
 
@@ -1092,7 +1099,7 @@
         // ================= QUIZ STATE & DATA =================
         // A bank of questions; each attempt draws a random subset (QUIZ_LENGTH)
         // and shuffles both question order and answer order.
-        const QUIZ_LENGTH = 8;
+        const QUIZ_LENGTH = 15;
 
         const quizQuestionBank = [
             {
@@ -1612,7 +1619,7 @@
             switchTab('theory');
 
             document.getElementById('quiz-desc').textContent =
-                `Ответьте на ${QUIZ_LENGTH} вопросов из банка ${quizQuestionBank.length}+, чтобы проверить своё понимание 1НФ, 2НФ и 3НФ. Каждая попытка — новый набор вопросов и порядка ответов.`;
+                `Ответьте на ${QUIZ_LENGTH} вопросов, чтобы проверить своё понимание 1НФ, 2НФ и 3НФ. Порядок вопросов и вариантов ответа каждый раз перемешивается заново.`;
 
             // Load first step of practice
             loadPracticeStep(1);
