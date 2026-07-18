@@ -35,9 +35,84 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+
+        /* Animated gradient blobs behind the content */
+        .bg-blobs {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .blob {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(90px);
+            opacity: 0.35;
+            will-change: transform;
+        }
+        .blob-1 {
+            width: 480px;
+            height: 480px;
+            top: -140px;
+            left: -120px;
+            background: radial-gradient(circle at 30% 30%, #818cf8, #4f46e5);
+            animation: float1 22s ease-in-out infinite;
+        }
+        .blob-2 {
+            width: 420px;
+            height: 420px;
+            top: 15%;
+            right: -160px;
+            background: radial-gradient(circle at 70% 30%, #c4b5fd, #7c3aed);
+            animation: float2 26s ease-in-out infinite;
+        }
+        .blob-3 {
+            width: 380px;
+            height: 380px;
+            bottom: -160px;
+            left: 12%;
+            background: radial-gradient(circle at 50% 50%, #93c5fd, #4338ca);
+            animation: float3 30s ease-in-out infinite;
+        }
+        @keyframes float1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(60px, 80px) scale(1.1); }
+        }
+        @keyframes float2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-70px, 50px) scale(0.95); }
+        }
+        @keyframes float3 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(50px, -60px) scale(1.05); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .blob { animation: none !important; }
+        }
+
+        /* Subtle fade-in used for tab content, quiz questions, practice steps */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-up {
+            animation: fadeInUp 0.45s ease-out both;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .fade-in-up { animation: none !important; }
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 antialiased min-h-screen flex flex-col">
+<body class="relative bg-gradient-to-br from-slate-50 via-indigo-50/40 to-purple-50/40 text-gray-800 antialiased min-h-screen overflow-x-hidden">
+
+    <div class="bg-blobs" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="relative z-10 flex flex-col min-h-screen">
 
     <!-- Header -->
     <header class="bg-gradient-to-r from-brand-700 via-brand-600 to-indigo-800 text-white shadow-md">
@@ -108,7 +183,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                 <!-- 1NF Card -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                     <div class="p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                         <span class="text-xs font-bold uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full">Шаг 1</span>
                         <h3 class="text-xl font-bold mt-3">1НФ: Первая нормальная форма</h3>
@@ -140,7 +215,7 @@
                 </div>
 
                 <!-- 2NF Card -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                     <div class="p-6 bg-gradient-to-br from-indigo-500 to-brand-600 text-white">
                         <span class="text-xs font-bold uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full">Шаг 2</span>
                         <h3 class="text-xl font-bold mt-3">2НФ: Вторая нормальная форма</h3>
@@ -173,7 +248,7 @@
                 </div>
 
                 <!-- 3NF Card -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                     <div class="p-6 bg-gradient-to-br from-indigo-600 to-purple-700 text-white">
                         <span class="text-xs font-bold uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full">Шаг 3</span>
                         <h3 class="text-xl font-bold mt-3">3НФ: Третья нормальная форма</h3>
@@ -218,7 +293,7 @@
                         </h2>
                         <p class="text-gray-500 text-sm mt-1">Пройдите путь от ненормализованной таблицы до 3НФ, исправляя аномалии. Примеры каждый раз разные.</p>
                     </div>
-                    <button onclick="restartPractice()" class="shrink-0 px-4 py-2 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 whitespace-nowrap">
+                    <button onclick="restartPractice()" class="shrink-0 px-4 py-2 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 whitespace-nowrap transition-transform active:scale-95">
                         🔄 Новый комплект заданий
                     </button>
                 </div>
@@ -306,10 +381,10 @@
 
                 <!-- Step Control Buttons -->
                 <div class="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-                    <button id="practice-prev-btn" onclick="prevPracticeStep()" class="px-5 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40" disabled>
+                    <button id="practice-prev-btn" onclick="prevPracticeStep()" class="px-5 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-transform active:scale-95" disabled>
                         Назад
                     </button>
-                    <button id="practice-next-btn" onclick="nextPracticeStep()" class="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition-colors shadow-sm">
+                    <button id="practice-next-btn" onclick="nextPracticeStep()" class="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition-all shadow-sm hover:scale-[1.02] active:scale-95">
                         Вперед
                     </button>
                 </div>
@@ -360,7 +435,7 @@
 
                     <!-- Quiz Navigation -->
                     <div class="flex justify-end pt-4">
-                        <button id="quiz-next-btn" onclick="submitQuizAnswer()" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm sm:text-base">
+                        <button id="quiz-next-btn" onclick="submitQuizAnswer()" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm sm:text-base hover:scale-[1.02] active:scale-95">
                             <span>Подтвердить ответ</span>
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </button>
@@ -385,7 +460,7 @@
                     <span id="quiz-score-percent" class="text-xs text-gray-500 font-medium block mt-1">80% правильных ответов</span>
                 </div>
                 <div>
-                    <button onclick="restartQuiz()" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-sm">
+                    <button onclick="restartQuiz()" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-sm hover:scale-[1.02] active:scale-95">
                         Пройти тест заново (новые вопросы)
                     </button>
                 </div>
@@ -428,7 +503,7 @@
                     <div id="account-error" class="hidden rounded-xl p-3 text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200"></div>
                     <div id="account-info" class="hidden rounded-xl p-3 text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
 
-                    <button id="account-submit-btn" onclick="handleAuthSubmit()" class="w-full px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition-colors shadow-sm">
+                    <button id="account-submit-btn" onclick="handleAuthSubmit()" class="w-full px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition-all shadow-sm hover:scale-[1.02] active:scale-95">
                         Войти
                     </button>
 
@@ -449,14 +524,14 @@
                     <div class="border-t border-gray-100 pt-4 space-y-3">
                         <label class="block text-xs font-bold text-gray-600">Отображаемое имя</label>
                         <input id="account-name-input" type="text" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none" placeholder="Как вас называть?">
-                        <button onclick="saveProfileName()" class="w-full px-5 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                        <button onclick="saveProfileName()" class="w-full px-5 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95">
                             Сохранить имя
                         </button>
                     </div>
 
                     <div id="account-save-info" class="hidden rounded-xl p-3 text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
 
-                    <button onclick="handleSignOut()" class="w-full px-5 py-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-bold transition-colors border border-rose-200">
+                    <button onclick="handleSignOut()" class="w-full px-5 py-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-bold transition-all border border-rose-200 hover:scale-[1.02] active:scale-95">
                         Выйти
                     </button>
                 </div>
@@ -478,6 +553,8 @@
             </div>
         </div>
     </footer>
+
+    </div>
 
     <!-- Interactive Logic (JavaScript) -->
     <script>
@@ -501,9 +578,20 @@
             targetBtn.classList.remove('text-white', 'hover:bg-white/10');
             targetBtn.classList.add('bg-white', 'text-brand-700', 'shadow-sm');
 
+            playFadeIn(targetTab);
+
             if (tabName === 'account' && typeof initAccountTab === 'function') {
                 initAccountTab();
             }
+        }
+
+        // Restarts the CSS fade-in-up animation on an element (used for tab switches,
+        // new quiz questions, new practice steps, etc.)
+        function playFadeIn(el) {
+            if (!el) return;
+            el.classList.remove('fade-in-up');
+            void el.offsetWidth; // force reflow so the animation restarts
+            el.classList.add('fade-in-up');
         }
 
         // Shared helper: Fisher-Yates shuffle (returns a new array, doesn't mutate input)
@@ -859,6 +947,8 @@
             const scenario = currentScenario[step];
             const displayLabels = ['А', 'Б', 'В', 'Г'];
 
+            playFadeIn(document.getElementById(`practice-step-${step}`));
+
             document.getElementById(`practice-task-${step}`).innerHTML = scenario.taskHtml;
             document.getElementById(`practice-table-${step}`).innerHTML = scenario.tableHtml;
             document.getElementById(`practice-label-${step}`).textContent = scenario.optionsLabel;
@@ -868,7 +958,7 @@
 
             scenario.options.forEach((opt, idx) => {
                 const btn = document.createElement('button');
-                btn.className = `practice-opt-${step} border-2 border-gray-200 hover:border-brand-500 rounded-xl p-4 text-left transition-all bg-white relative`;
+                btn.className = `practice-opt-${step} border-2 border-gray-200 hover:border-brand-500 rounded-xl p-4 text-left transition-all bg-white relative hover:-translate-y-0.5`;
                 btn.dataset.idx = idx;
                 btn.onclick = () => selectPracticeOption(step, idx);
                 btn.innerHTML = `
@@ -940,7 +1030,7 @@
                         ? `practice-opt-${step} border-2 border-emerald-500 bg-emerald-50/30 rounded-xl p-4 text-left transition-all relative`
                         : `practice-opt-${step} border-2 border-rose-400 bg-rose-50/30 rounded-xl p-4 text-left transition-all relative`;
                 } else {
-                    btn.className = `practice-opt-${step} border-2 border-gray-200 hover:border-brand-500 rounded-xl p-4 text-left transition-all bg-white relative`;
+                    btn.className = `practice-opt-${step} border-2 border-gray-200 hover:border-brand-500 rounded-xl p-4 text-left transition-all bg-white relative hover:-translate-y-0.5`;
                 }
             });
         }
@@ -965,7 +1055,7 @@
             const feedbackEl = document.getElementById(`practice-feedback-${step}`);
             feedbackEl.classList.add('hidden');
             document.querySelectorAll(`.practice-opt-${step}`).forEach(btn => {
-                btn.className = `practice-opt-${step} border-2 border-gray-200 hover:border-brand-500 rounded-xl p-4 text-left transition-all bg-white relative`;
+                btn.className = `practice-opt-${step} border-2 border-gray-200 hover:border-brand-500 rounded-xl p-4 text-left transition-all bg-white relative hover:-translate-y-0.5`;
             });
         }
 
@@ -1186,6 +1276,8 @@
         function renderQuizQuestion() {
             const currentQ = quizQuestions[quizCurrentIndex];
 
+            playFadeIn(document.getElementById('question-title').closest('.space-y-6'));
+
             // Progress update
             document.getElementById('quiz-progress-text').textContent = `${quizCurrentIndex + 1} / ${quizQuestions.length}`;
             const progressPercent = ((quizCurrentIndex + 1) / quizQuestions.length) * 100;
@@ -1201,7 +1293,7 @@
 
             currentQ.options.forEach(opt => {
                 const optBtn = document.createElement('button');
-                optBtn.className = "quiz-opt-btn w-full border-2 border-gray-200 hover:border-indigo-400 rounded-xl p-4 text-left transition-all bg-white relative flex gap-3 items-start";
+                optBtn.className = "quiz-opt-btn w-full border-2 border-gray-200 hover:border-indigo-400 rounded-xl p-4 text-left transition-all bg-white relative flex gap-3 items-start hover:-translate-y-0.5";
                 optBtn.onclick = () => selectQuizOption(opt.id);
                 optBtn.innerHTML = `
                     <span class="w-6 h-6 rounded-lg bg-gray-100 text-gray-700 text-xs flex items-center justify-center shrink-0 font-bold mt-0.5 border border-gray-200">${opt.id}</span>
@@ -1238,14 +1330,14 @@
                     btn.className = "quiz-opt-btn w-full border-2 border-brand-500 bg-brand-50/10 rounded-xl p-4 text-left transition-all relative flex gap-3 items-start shadow-sm";
                     optNumIcon.className = "w-6 h-6 rounded-lg bg-brand-500 text-white text-xs flex items-center justify-center shrink-0 font-bold mt-0.5 border border-brand-600";
                 } else {
-                    btn.className = "quiz-opt-btn w-full border-2 border-gray-200 hover:border-indigo-400 rounded-xl p-4 text-left transition-all bg-white relative flex gap-3 items-start";
+                    btn.className = "quiz-opt-btn w-full border-2 border-gray-200 hover:border-indigo-400 rounded-xl p-4 text-left transition-all bg-white relative flex gap-3 items-start hover:-translate-y-0.5";
                     optNumIcon.className = "w-6 h-6 rounded-lg bg-gray-100 text-gray-700 text-xs flex items-center justify-center shrink-0 font-bold mt-0.5 border border-gray-200";
                 }
             });
 
             const nextBtn = document.getElementById('quiz-next-btn');
             nextBtn.disabled = false;
-            nextBtn.className = "px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm sm:text-base";
+            nextBtn.className = "px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm sm:text-base hover:scale-[1.02] active:scale-95";
         }
 
         function submitQuizAnswer() {
@@ -1313,6 +1405,7 @@
             // Show result screen
             const resultScreen = document.getElementById('quiz-result-screen');
             resultScreen.classList.remove('hidden');
+            playFadeIn(resultScreen);
 
             document.getElementById('quiz-score-val').textContent = `${quizScore} / ${quizQuestions.length}`;
             const percentage = Math.round((quizScore / quizQuestions.length) * 100);
