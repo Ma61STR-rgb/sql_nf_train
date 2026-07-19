@@ -138,6 +138,9 @@
                 <button onclick="switchTab('quiz')" id="btn-quiz" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
                     Тестирование
                 </button>
+                <button onclick="switchTab('ucs')" id="btn-ucs" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
+                    UCS
+                </button>
                 <!-- Временно отключено: кнопка вкладки «Кабинет» (авторизация)
                 <button onclick="switchTab('account')" id="btn-account" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
                     Кабинет
@@ -469,9 +472,107 @@
             </div>
         </section>
 
+        <!-- ================= UCS TAB ================= -->
+        <section id="tab-ucs" class="tab-content hidden space-y-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-2xl font-bold text-gray-950 flex items-center gap-2">
+                    📋 Конструктор UCS (Use Case Specification)
+                </h2>
+                <p class="text-gray-500 text-sm mt-1">Заполни форму по шаблону — справа появится готовая таблица для вставки в документацию. Строки основного и альтернативных потоков можно добавлять и удалять.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+                <!-- FORM -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Идентификатор</label>
+                            <input id="ucs-id" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="uc_01">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Название</label>
+                            <input id="ucs-name" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="Авторизация на сайте">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Область действия</label>
+                            <input id="ucs-scope" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="Сайт">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Участники</label>
+                            <input id="ucs-participants" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="Клиент, система">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Предусловия</label>
+                        <textarea id="ucs-preconditions" rows="2" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none" placeholder="Клиент не авторизован"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Триггеры</label>
+                        <textarea id="ucs-triggers" rows="2" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none" placeholder="Клиент нажал на кнопку «Войти»"></textarea>
+                    </div>
+
+                    <!-- Основной поток -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-gray-600">Основной поток</label>
+                            <button onclick="addMainStep()" class="text-xs font-semibold text-brand-600 hover:text-brand-800 transition-transform active:scale-95">+ Добавить шаг</button>
+                        </div>
+                        <div id="ucs-main-steps" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Альтернативные потоки -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-gray-600">Альтернативные потоки</label>
+                            <button onclick="addAltFlow()" class="text-xs font-semibold text-brand-600 hover:text-brand-800 transition-transform active:scale-95">+ Добавить поток</button>
+                        </div>
+                        <div id="ucs-alt-flows" class="space-y-4"></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Постусловия</label>
+                        <textarea id="ucs-postconditions" rows="2" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none" placeholder="Клиент авторизован в системе"></textarea>
+                    </div>
+
+                    <!-- Специальные требования -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-gray-600">Специальные требования</label>
+                            <button onclick="addSpecGroup()" class="text-xs font-semibold text-brand-600 hover:text-brand-800 transition-transform active:scale-95">+ Добавить группу</button>
+                        </div>
+                        <div id="ucs-spec-groups" class="space-y-4"></div>
+                    </div>
+
+                </div>
+
+                <!-- PREVIEW -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 lg:sticky lg:top-6">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <h3 class="text-lg font-bold text-gray-900">Предпросмотр таблицы</h3>
+                        <div class="flex gap-2">
+                            <button onclick="copyUcsTable('html')" class="px-3 py-1.5 rounded-lg border-2 border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95">📋 Как таблицу</button>
+                            <button onclick="copyUcsTable('text')" class="px-3 py-1.5 rounded-lg border-2 border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95">📄 Как текст</button>
+                        </div>
+                    </div>
+                    <div id="ucs-copy-status" class="hidden rounded-xl p-2.5 text-xs font-medium"></div>
+                    <div id="ucs-preview-wrap" class="overflow-x-auto border border-gray-200 rounded-xl">
+                        <table id="ucs-preview-table" class="min-w-full text-xs sm:text-sm text-left border-collapse"></table>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
         <!-- Вкладка «Кабинет» временно отключена (кнопка в nav закомментирована выше).
              Секция ниже намеренно НЕ обёрнута в HTML-комментарий, т.к. внутри неё
-             уже есть свои комментарии — вложенные  в HTML ломают разметку.
+             уже есть свои комментарии — вложенные <!-- --> в HTML ломают разметку.
              Секция и так недоступна: класс "hidden" снимается только через
              switchTab('account'), а вызвать это можно было только кнопкой, которой
              больше нет в интерфейсе. Чтобы вернуть — раскомментируй кнопку в nav. -->
@@ -1613,6 +1714,332 @@
             });
         }
 
+        // ================= UCS CONSTRUCTOR STATE & LOGIC =================
+        // Escapes text before it's inserted into HTML (attribute values or innerHTML)
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        const ALT_FLOW_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+
+        let ucsData = {
+            mainFlow: ['', '', ''],
+            altFlows: [
+                { branchFrom: 1, title: '', steps: ['', '', ''] }
+            ]
+        };
+        let ucsSpecGroups = [
+            { title: '', items: ['', ''] }
+        ];
+
+        // ---- Основной поток ----
+        function renderMainSteps() {
+            const container = document.getElementById('ucs-main-steps');
+            container.innerHTML = '';
+            ucsData.mainFlow.forEach((val, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                row.innerHTML = `
+                    <span class="w-6 text-xs font-bold text-gray-400 shrink-0">${idx + 1}.</span>
+                    <input type="text" value="${escapeHtml(val)}" data-idx="${idx}"
+                        class="ucs-main-step-input flex-1 border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                        placeholder="Действие в основном потоке">
+                    <button onclick="removeMainStep(${idx})" class="shrink-0 w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-50 flex items-center justify-center font-bold transition-transform active:scale-95" title="Удалить шаг">✕</button>
+                `;
+                container.appendChild(row);
+            });
+            container.querySelectorAll('.ucs-main-step-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    ucsData.mainFlow[Number(e.target.dataset.idx)] = e.target.value;
+                    renderUcsPreview();
+                });
+            });
+        }
+        function addMainStep() {
+            ucsData.mainFlow.push('');
+            renderMainSteps();
+            renderUcsPreview();
+        }
+        function removeMainStep(idx) {
+            ucsData.mainFlow.splice(idx, 1);
+            renderMainSteps();
+            renderUcsPreview();
+        }
+
+        // ---- Альтернативные потоки ----
+        function renderAltFlows() {
+            const container = document.getElementById('ucs-alt-flows');
+            container.innerHTML = '';
+            ucsData.altFlows.forEach((flow, gIdx) => {
+                const letter = ALT_FLOW_LETTERS[gIdx] || `#${gIdx + 1}`;
+                const group = document.createElement('div');
+                group.className = 'border border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50/50';
+                group.innerHTML = `
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs font-bold text-brand-600 shrink-0">Поток ${letter})</span>
+                        <input type="text" value="${escapeHtml(flow.title)}" data-gidx="${gIdx}"
+                            class="ucs-alt-title-input flex-1 min-w-[140px] border-2 border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                            placeholder="Название/условие потока">
+                        <label class="text-xs text-gray-500 shrink-0">от шага</label>
+                        <input type="number" min="1" value="${flow.branchFrom}" data-gidx="${gIdx}"
+                            class="ucs-alt-branch-input w-14 border-2 border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none">
+                        <button onclick="removeAltFlow(${gIdx})" class="shrink-0 w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-50 flex items-center justify-center font-bold transition-transform active:scale-95" title="Удалить поток">✕</button>
+                    </div>
+                    <div class="space-y-1.5 pl-2" id="ucs-alt-steps-${gIdx}"></div>
+                    <button onclick="addAltStep(${gIdx})" class="text-xs font-semibold text-brand-600 hover:text-brand-800 transition-transform active:scale-95">+ Добавить шаг</button>
+                `;
+                container.appendChild(group);
+
+                const stepsContainer = group.querySelector(`#ucs-alt-steps-${gIdx}`);
+                flow.steps.forEach((val, sIdx) => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2';
+                    row.innerHTML = `
+                        <span class="w-16 text-xs font-mono text-gray-400 shrink-0">${flow.branchFrom}.${letter}.${sIdx + 1}</span>
+                        <input type="text" value="${escapeHtml(val)}" data-gidx="${gIdx}" data-sidx="${sIdx}"
+                            class="ucs-alt-step-input flex-1 border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                            placeholder="Действие альтернативного потока">
+                        <button onclick="removeAltStep(${gIdx}, ${sIdx})" class="shrink-0 w-6 h-6 rounded-lg text-rose-400 hover:bg-rose-50 flex items-center justify-center text-xs font-bold transition-transform active:scale-95" title="Удалить шаг">✕</button>
+                    `;
+                    stepsContainer.appendChild(row);
+                });
+            });
+
+            container.querySelectorAll('.ucs-alt-title-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    ucsData.altFlows[Number(e.target.dataset.gidx)].title = e.target.value;
+                    renderUcsPreview();
+                });
+            });
+            container.querySelectorAll('.ucs-alt-branch-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const gIdx = Number(e.target.dataset.gidx);
+                    ucsData.altFlows[gIdx].branchFrom = Number(e.target.value) || 1;
+                    renderAltFlows(); // re-render so the "N.letter.step" labels update
+                    renderUcsPreview();
+                });
+            });
+            container.querySelectorAll('.ucs-alt-step-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const gIdx = Number(e.target.dataset.gidx);
+                    const sIdx = Number(e.target.dataset.sidx);
+                    ucsData.altFlows[gIdx].steps[sIdx] = e.target.value;
+                    renderUcsPreview();
+                });
+            });
+        }
+        function addAltFlow() {
+            ucsData.altFlows.push({ branchFrom: 1, title: '', steps: ['', '', ''] });
+            renderAltFlows();
+            renderUcsPreview();
+        }
+        function removeAltFlow(gIdx) {
+            ucsData.altFlows.splice(gIdx, 1);
+            renderAltFlows();
+            renderUcsPreview();
+        }
+        function addAltStep(gIdx) {
+            ucsData.altFlows[gIdx].steps.push('');
+            renderAltFlows();
+            renderUcsPreview();
+        }
+        function removeAltStep(gIdx, sIdx) {
+            ucsData.altFlows[gIdx].steps.splice(sIdx, 1);
+            renderAltFlows();
+            renderUcsPreview();
+        }
+
+        // ---- Специальные требования ----
+        function renderSpecGroups() {
+            const container = document.getElementById('ucs-spec-groups');
+            container.innerHTML = '';
+            ucsSpecGroups.forEach((group, gIdx) => {
+                const el = document.createElement('div');
+                el.className = 'border border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50/50';
+                el.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <input type="text" value="${escapeHtml(group.title)}" data-gidx="${gIdx}"
+                            class="ucs-spec-title-input flex-1 border-2 border-gray-200 rounded-lg px-2.5 py-1.5 text-sm font-semibold focus:border-brand-500 focus:outline-none"
+                            placeholder="Название группы требований">
+                        <button onclick="removeSpecGroup(${gIdx})" class="shrink-0 w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-50 flex items-center justify-center font-bold transition-transform active:scale-95" title="Удалить группу">✕</button>
+                    </div>
+                    <div class="space-y-1.5 pl-2" id="ucs-spec-items-${gIdx}"></div>
+                    <button onclick="addSpecItem(${gIdx})" class="text-xs font-semibold text-brand-600 hover:text-brand-800 transition-transform active:scale-95">+ Добавить пункт</button>
+                `;
+                container.appendChild(el);
+
+                const itemsContainer = el.querySelector(`#ucs-spec-items-${gIdx}`);
+                group.items.forEach((val, iIdx) => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2';
+                    row.innerHTML = `
+                        <span class="text-gray-400 text-xs shrink-0">•</span>
+                        <input type="text" value="${escapeHtml(val)}" data-gidx="${gIdx}" data-iidx="${iIdx}"
+                            class="ucs-spec-item-input flex-1 border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                            placeholder="Требование">
+                        <button onclick="removeSpecItem(${gIdx}, ${iIdx})" class="shrink-0 w-6 h-6 rounded-lg text-rose-400 hover:bg-rose-50 flex items-center justify-center text-xs font-bold transition-transform active:scale-95" title="Удалить пункт">✕</button>
+                    `;
+                    itemsContainer.appendChild(row);
+                });
+            });
+
+            container.querySelectorAll('.ucs-spec-title-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    ucsSpecGroups[Number(e.target.dataset.gidx)].title = e.target.value;
+                    renderUcsPreview();
+                });
+            });
+            container.querySelectorAll('.ucs-spec-item-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const gIdx = Number(e.target.dataset.gidx);
+                    const iIdx = Number(e.target.dataset.iidx);
+                    ucsSpecGroups[gIdx].items[iIdx] = e.target.value;
+                    renderUcsPreview();
+                });
+            });
+        }
+        function addSpecGroup() {
+            ucsSpecGroups.push({ title: '', items: ['', ''] });
+            renderSpecGroups();
+            renderUcsPreview();
+        }
+        function removeSpecGroup(gIdx) {
+            ucsSpecGroups.splice(gIdx, 1);
+            renderSpecGroups();
+            renderUcsPreview();
+        }
+        function addSpecItem(gIdx) {
+            ucsSpecGroups[gIdx].items.push('');
+            renderSpecGroups();
+            renderUcsPreview();
+        }
+        function removeSpecItem(gIdx, iIdx) {
+            ucsSpecGroups[gIdx].items.splice(iIdx, 1);
+            renderSpecGroups();
+            renderUcsPreview();
+        }
+
+        // ---- Сборка строк таблицы и превью ----
+        function buildUcsRows() {
+            const val = (id) => document.getElementById(id).value.trim();
+
+            const mainFlowText = ucsData.mainFlow
+                .map((s, i) => `${i + 1}. ${s || '…'}`)
+                .join('\n');
+
+            const altFlowsText = ucsData.altFlows.map((flow, gIdx) => {
+                const letter = ALT_FLOW_LETTERS[gIdx] || `#${gIdx + 1}`;
+                const header = `${flow.branchFrom}.${letter}) ${flow.title || '…'}`;
+                const steps = flow.steps
+                    .map((s, sIdx) => `${flow.branchFrom}.${letter}.${sIdx + 1} ${s || '…'}`)
+                    .join('\n');
+                return [header, steps].filter(Boolean).join('\n');
+            }).join('\n\n');
+
+            const specText = ucsSpecGroups.map(group => {
+                const header = group.title || '…';
+                const items = group.items.map(i => `- ${i || '…'}`).join('\n');
+                return [header, items].filter(Boolean).join('\n');
+            }).join('\n\n');
+
+            return [
+                ['Идентификатор', val('ucs-id')],
+                ['Название', val('ucs-name')],
+                ['Область действия', val('ucs-scope')],
+                ['Участники', val('ucs-participants')],
+                ['Предусловия', val('ucs-preconditions')],
+                ['Триггеры', val('ucs-triggers')],
+                ['Основной поток', mainFlowText],
+                ['Альтернативные потоки', altFlowsText],
+                ['Постусловия', val('ucs-postconditions')],
+                ['Специальные требования', specText]
+            ];
+        }
+
+        function renderUcsPreview() {
+            const rows = buildUcsRows();
+            const table = document.getElementById('ucs-preview-table');
+            table.innerHTML = rows.map(([label, value]) => {
+                const escapedValue = escapeHtml(value);
+                const cell = escapedValue
+                    ? escapedValue
+                    : '<span class="text-gray-300 italic">—</span>';
+                return `
+                    <tr class="border-b border-gray-200 align-top">
+                        <th class="w-40 sm:w-48 shrink-0 bg-gray-50 text-left font-bold text-gray-700 px-3 py-2.5 border-r border-gray-200 align-top">${escapeHtml(label)}</th>
+                        <td class="px-3 py-2.5 whitespace-pre-wrap text-gray-800">${cell}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function buildUcsPlainText() {
+            return buildUcsRows()
+                .map(([label, value]) => `${label}\n${value || '—'}`)
+                .join('\n\n');
+        }
+
+        // ---- Копирование ----
+        function copyTextToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+        }
+
+        function copyElementAsRichText(el) {
+            const range = document.createRange();
+            range.selectNode(el);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand('copy');
+            selection.removeAllRanges();
+        }
+
+        function showUcsCopyStatus(message, isError) {
+            const statusEl = document.getElementById('ucs-copy-status');
+            statusEl.textContent = message;
+            statusEl.className = isError
+                ? "rounded-xl p-2.5 text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200"
+                : "rounded-xl p-2.5 text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200";
+            statusEl.classList.remove('hidden');
+        }
+
+        function copyUcsTable(format) {
+            try {
+                if (format === 'text') {
+                    copyTextToClipboard(buildUcsPlainText());
+                    showUcsCopyStatus('📄 Текст скопирован в буфер обмена.', false);
+                } else {
+                    copyElementAsRichText(document.getElementById('ucs-preview-table'));
+                    showUcsCopyStatus('📋 Таблица скопирована — вставляй в Word, Google Docs или Confluence.', false);
+                }
+            } catch (err) {
+                showUcsCopyStatus('Не удалось скопировать автоматически. Выдели таблицу вручную и нажми Ctrl/Cmd+C.', true);
+            }
+        }
+
+        function initUcsTab() {
+            renderMainSteps();
+            renderAltFlows();
+            renderSpecGroups();
+            renderUcsPreview();
+        }
+
         // Initialize state on load
         window.onload = function() {
             // Switch to theory by default
@@ -1626,6 +2053,9 @@
 
             // Init quiz
             renderQuizQuestion();
+
+            // Init UCS constructor
+            initUcsTab();
         };
     </script>
 </body>
