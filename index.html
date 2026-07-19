@@ -590,6 +590,15 @@
                     <div id="ucs-preview-wrap" class="overflow-x-auto border border-gray-200 rounded-xl">
                         <table id="ucs-preview-table" class="min-w-full text-left"></table>
                     </div>
+
+                    <div class="border-t border-gray-100 pt-4 space-y-3">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <h3 class="text-sm font-bold text-gray-700">Проверка на соответствие стандарту</h3>
+                            <button onclick="runUcsValidation()" class="px-3 py-1.5 rounded-lg border-2 border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95">✅ Проверить</button>
+                        </div>
+                        <p class="text-xs text-gray-400">Это формальная проверка структуры (пустые поля, корректные ссылки на шаги и т.п.). Смысловую логику шагов она не оценивает.</p>
+                        <div id="ucs-validation-results" class="hidden space-y-1.5"></div>
+                    </div>
                 </div>
 
             </div>
@@ -716,6 +725,13 @@
 
             if (tabName === 'account' && typeof initAccountTab === 'function') {
                 initAccountTab();
+            }
+
+            if (tabName === 'ucs') {
+                // scrollHeight не считается корректно, пока элемент внутри display:none —
+                // поэтому пересчитываем высоту textarea именно теперь, когда вкладка стала видимой
+                // (при первой загрузке страницы вкладка UCS ещё скрыта, и авторасчёт даёт 0).
+                document.querySelectorAll('.ucs-autogrow').forEach(autoGrowTextarea);
             }
         }
 
@@ -2211,6 +2227,121 @@
             } catch (err) {
                 showUcsCopyStatus('Не удалось скопировать автоматически. Выдели таблицу вручную и нажми Ctrl/Cmd+C.', true);
             }
+        }
+
+        // ---- Формальная проверка на соответствие стандарту UCS ----
+        // Проверяет только структуру (пустые поля, корректность ссылок на шаги и т.п.),
+        // не оценивает смысл и логичность формулировок — это отдельная, более сложная
+        // задача, для которой формальных правил недостаточно.
+        function validateUcs() {
+            const issues = []; // { level: 'error' | 'warning', message: string }
+            const err = (message) => issues.push({ level: 'error', message });
+            const warn = (message) => issues.push({ level: 'warning', message });
+
+            const val = (id) => document.getElementById(id).value.trim();
+
+            const id = val('ucs-id');
+            if (!id) err('Не заполнен «Идентификатор».');
+            else if (/\s/.test(id)) warn('Идентификатор обычно пишут без пробелов, например uc_01.');
+
+            if (!val('ucs-name')) err('Не заполнено «Название».');
+            if (!val('ucs-scope')) warn('Не заполнена «Область действия».');
+
+            const participants = ucsData.participants.filter(p => p && p.trim());
+            if (participants.length === 0) err('Не указан ни один участник.');
+
+            if (!val('ucs-preconditions')) warn('Не заполнены «Предусловия».');
+            if (!val('ucs-triggers')) warn('Не заполнены «Триггеры».');
+            if (!val('ucs-postconditions')) warn('Не заполнены «Постусловия».');
+
+            // Основной поток
+            const mainSteps = ucsData.mainFlow;
+            const filledMainSteps = mainSteps.filter(s => s && s.trim());
+            if (filledMainSteps.length === 0) {
+                err('Основной поток пуст — нет ни одного заполненного шага.');
+            } else if (filledMainSteps.length < mainSteps.length) {
+                mainSteps.forEach((s, i) => {
+                    if (!s || !s.trim()) err(`Основной поток: шаг ${i + 1} пустой.`);
+                });
+            }
+            if (filledMainSteps.length === 1) {
+                warn('В основном потоке всего один шаг — обычно сценарий описывают несколькими последовательными действиями.');
+            }
+
+            // Альтернативные потоки
+            if (ucsData.altFlows.length === 0) {
+                warn('Не добавлено ни одного альтернативного потока — если сценарий действительно без исключений, это нормально, иначе стоит их добавить.');
+            }
+            ucsData.altFlows.forEach((flow, gIdx) => {
+                const letter = ALT_FLOW_LETTERS[gIdx] || `#${gIdx + 1}`;
+                const label = `Альтернативный поток ${letter})`;
+
+                if (!flow.title || !flow.title.trim()) {
+                    err(`${label}: не заполнено название/условие потока.`);
+                }
+                if (!flow.branchFrom || flow.branchFrom < 1) {
+                    err(`${label}: не указан шаг основного потока, от которого он ответвляется.`);
+                } else if (flow.branchFrom > mainSteps.length) {
+                    err(`${label}: ссылается на шаг ${flow.branchFrom} основного потока, а в нём всего ${mainSteps.length} шаг(ов).`);
+                }
+
+                const filledSteps = flow.steps.filter(s => s && s.trim());
+                if (filledSteps.length === 0) {
+                    err(`${label}: нет ни одного заполненного шага.`);
+                } else if (filledSteps.length < flow.steps.length) {
+                    flow.steps.forEach((s, sIdx) => {
+                        if (!s || !s.trim()) err(`${label}: шаг ${sIdx + 1} пустой.`);
+                    });
+                }
+            });
+
+            // Специальные требования
+            ucsSpecGroups.forEach((group, gIdx) => {
+                if (!group.title || !group.title.trim()) {
+                    warn(`Специальные требования: группа ${gIdx + 1} без названия.`);
+                }
+                const filledItems = group.items.filter(i => i && i.trim());
+                if (filledItems.length === 0) {
+                    warn(`Специальные требования «${group.title || '#' + (gIdx + 1)}»: нет ни одного заполненного пункта.`);
+                }
+            });
+
+            return issues;
+        }
+
+        function runUcsValidation() {
+            const issues = validateUcs();
+            const resultsEl = document.getElementById('ucs-validation-results');
+            resultsEl.classList.remove('hidden');
+
+            if (issues.length === 0) {
+                resultsEl.innerHTML = `
+                    <div class="rounded-xl p-3 text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        ✅ Явных нарушений формата не найдено.
+                    </div>
+                `;
+                return;
+            }
+
+            const errorCount = issues.filter(i => i.level === 'error').length;
+            const warningCount = issues.filter(i => i.level === 'warning').length;
+            const summaryParts = [];
+            if (errorCount) summaryParts.push(`❌ ошибок: ${errorCount}`);
+            if (warningCount) summaryParts.push(`⚠️ рекомендаций: ${warningCount}`);
+
+            const summaryHtml = `
+                <div class="rounded-xl p-3 text-xs font-medium ${errorCount ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
+                    ${summaryParts.join(' · ')}
+                </div>
+            `;
+
+            const listHtml = issues.map(i => `
+                <div class="text-xs px-3 py-2 rounded-lg border ${i.level === 'error' ? 'bg-rose-50/60 border-rose-100 text-rose-800' : 'bg-amber-50/60 border-amber-100 text-amber-800'}">
+                    ${i.level === 'error' ? '❌' : '⚠️'} ${escapeHtml(i.message)}
+                </div>
+            `).join('');
+
+            resultsEl.innerHTML = summaryHtml + '<div class="space-y-1.5 mt-2">' + listHtml + '</div>';
         }
 
         // ---- Автосохранение в localStorage ----
