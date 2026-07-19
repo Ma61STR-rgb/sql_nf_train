@@ -157,11 +157,9 @@
                 <button onclick="switchTab('ucs')" id="btn-ucs" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
                     UCS
                 </button>
-                <!-- Временно отключено: кнопка вкладки «Кабинет» (авторизация)
                 <button onclick="switchTab('account')" id="btn-account" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-white hover:bg-white/10 transition-all duration-200">
                     Кабинет
                 </button>
-                -->
             </nav>
         </div>
     </header>
@@ -504,6 +502,27 @@
                 </div>
             </div>
 
+            <!-- Сохранённые в облаке сценарии (нужен вход в Кабинет) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">☁️ Сохранённые сценарии</h3>
+                    <div id="ucs-cloud-actions" class="hidden">
+                        <div class="flex gap-2">
+                            <button onclick="saveCurrentUcs(false)" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm hover:scale-[1.02] active:scale-95">💾 Сохранить</button>
+                            <button onclick="saveCurrentUcs(true)" class="px-3 py-1.5 rounded-lg border-2 border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95">🆕 Сохранить как новый</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ucs-cloud-logged-out" class="hidden text-sm text-gray-500">
+                    Войди в <button onclick="switchTab('account')" class="text-brand-600 font-bold hover:underline">Кабинет</button>, чтобы сохранять сценарии в облако и открывать их с любого устройства.
+                </div>
+
+                <div id="ucs-cloud-status" class="hidden rounded-xl p-2.5 text-xs font-medium mb-3"></div>
+
+                <div id="ucs-cloud-list" class="space-y-2"></div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
                 <!-- FORM -->
@@ -604,13 +623,7 @@
             </div>
         </section>
 
-        <!-- Вкладка «Кабинет» временно отключена (кнопка в nav закомментирована выше).
-             Секция ниже намеренно НЕ обёрнута в комментарий целиком, т.к. внутри неё
-             уже есть свои HTML-комментарии, а вложенные комментарии закрываются
-             раньше времени и ломают разметку. Секция и так недоступна: класс
-             "hidden" снимается только через switchTab('account'), а вызвать это
-             можно было только кнопкой, которой больше нет в интерфейсе. Чтобы
-             вернуть — раскомментируй кнопку в nav. -->
+        <!-- ================= ACCOUNT TAB ================= -->
         <section id="tab-account" class="tab-content hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 max-w-md mx-auto">
 
@@ -732,6 +745,9 @@
                 // поэтому пересчитываем высоту textarea именно теперь, когда вкладка стала видимой
                 // (при первой загрузке страницы вкладка UCS ещё скрыта, и авторасчёт даёт 0).
                 document.querySelectorAll('.ucs-autogrow').forEach(autoGrowTextarea);
+                if (typeof refreshUcsCloudUI === 'function') {
+                    refreshUcsCloudUI();
+                }
             }
         }
 
@@ -1753,6 +1769,9 @@
                 } else {
                     showAuthFormState();
                 }
+                if (typeof refreshUcsCloudUI === 'function') {
+                    refreshUcsCloudUI();
+                }
             });
         }
 
@@ -2344,22 +2363,60 @@
             resultsEl.innerHTML = summaryHtml + '<div class="space-y-1.5 mt-2">' + listHtml + '</div>';
         }
 
-        // ---- Автосохранение в localStorage ----
+        // ---- Общий формат данных формы (используется и для localStorage, и для облака) ----
+        function buildUcsPayload() {
+            const staticFields = {};
+            UCS_STATIC_FIELD_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) staticFields[id] = el.value;
+            });
+            return {
+                staticFields,
+                participants: ucsData.participants,
+                mainFlow: ucsData.mainFlow,
+                altFlows: ucsData.altFlows,
+                specGroups: ucsSpecGroups
+            };
+        }
+
+        function applyUcsPayload(data) {
+            if (!data) return false;
+
+            UCS_STATIC_FIELD_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && data.staticFields && typeof data.staticFields[id] === 'string') {
+                    el.value = data.staticFields[id];
+                }
+            });
+
+            if (Array.isArray(data.participants) && data.participants.length > 0) {
+                ucsData.participants = data.participants;
+            }
+            if (Array.isArray(data.mainFlow) && data.mainFlow.length > 0) {
+                ucsData.mainFlow = data.mainFlow;
+            }
+            if (Array.isArray(data.altFlows) && data.altFlows.length > 0) {
+                ucsData.altFlows = data.altFlows;
+            }
+            if (Array.isArray(data.specGroups) && data.specGroups.length > 0) {
+                ucsSpecGroups = data.specGroups;
+            }
+            return true;
+        }
+
+        function rerenderUcsForm() {
+            renderParticipants();
+            renderMainSteps();
+            renderAltFlows();
+            renderSpecGroups();
+            renderUcsPreview();
+            document.querySelectorAll('.ucs-autogrow').forEach(autoGrowTextarea);
+        }
+
+        // ---- Автосохранение в localStorage (черновик в этом браузере) ----
         function saveUcsToStorage() {
             try {
-                const staticFields = {};
-                UCS_STATIC_FIELD_IDS.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) staticFields[id] = el.value;
-                });
-                const payload = {
-                    staticFields,
-                    participants: ucsData.participants,
-                    mainFlow: ucsData.mainFlow,
-                    altFlows: ucsData.altFlows,
-                    specGroups: ucsSpecGroups
-                };
-                localStorage.setItem(UCS_STORAGE_KEY, JSON.stringify(payload));
+                localStorage.setItem(UCS_STORAGE_KEY, JSON.stringify(buildUcsPayload()));
             } catch (err) {
                 // localStorage может быть недоступен (приватный режим и т.п.) — просто не сохраняем
             }
@@ -2369,28 +2426,7 @@
             try {
                 const raw = localStorage.getItem(UCS_STORAGE_KEY);
                 if (!raw) return false;
-                const data = JSON.parse(raw);
-
-                UCS_STATIC_FIELD_IDS.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el && data.staticFields && typeof data.staticFields[id] === 'string') {
-                        el.value = data.staticFields[id];
-                    }
-                });
-
-                if (Array.isArray(data.participants) && data.participants.length > 0) {
-                    ucsData.participants = data.participants;
-                }
-                if (Array.isArray(data.mainFlow) && data.mainFlow.length > 0) {
-                    ucsData.mainFlow = data.mainFlow;
-                }
-                if (Array.isArray(data.altFlows) && data.altFlows.length > 0) {
-                    ucsData.altFlows = data.altFlows;
-                }
-                if (Array.isArray(data.specGroups) && data.specGroups.length > 0) {
-                    ucsSpecGroups = data.specGroups;
-                }
-                return true;
+                return applyUcsPayload(JSON.parse(raw));
             } catch (err) {
                 return false;
             }
@@ -2407,6 +2443,7 @@
 
             ucsData = defaultUcsData();
             ucsSpecGroups = defaultUcsSpecGroups();
+            currentUcsDocId = null;
 
             try {
                 localStorage.removeItem(UCS_STORAGE_KEY);
@@ -2414,11 +2451,7 @@
                 // ignore
             }
 
-            renderParticipants();
-            renderMainSteps();
-            renderAltFlows();
-            renderSpecGroups();
-            renderUcsPreview();
+            rerenderUcsForm();
         }
 
         // Растягивает textarea по высоте содержимого, чтобы не появлялся
@@ -2428,14 +2461,164 @@
             el.style.height = el.scrollHeight + 'px';
         }
 
+        // ---- Сохранённые в облаке сценарии (Supabase, требует входа в Кабинет) ----
+        let currentUcsDocId = null;
+
+        function ucsDocTitleFromForm() {
+            const idVal = document.getElementById('ucs-id').value.trim();
+            const nameVal = document.getElementById('ucs-name').value.trim();
+            if (idVal && nameVal) return `${idVal} — ${nameVal}`;
+            return idVal || nameVal || 'Без названия';
+        }
+
+        function showUcsCloudStatus(message, isError) {
+            const el = document.getElementById('ucs-cloud-status');
+            el.textContent = message;
+            el.className = isError
+                ? "rounded-xl p-2.5 text-xs font-medium mb-3 bg-rose-50 text-rose-800 border border-rose-200"
+                : "rounded-xl p-2.5 text-xs font-medium mb-3 bg-emerald-50 text-emerald-800 border border-emerald-200";
+            el.classList.remove('hidden');
+        }
+
+        // Вызывается при заходе на вкладку UCS и при смене состояния входа —
+        // показывает либо приглашение войти, либо кнопки сохранения + список сценариев.
+        async function refreshUcsCloudUI() {
+            const loggedOutEl = document.getElementById('ucs-cloud-logged-out');
+            const actionsEl = document.getElementById('ucs-cloud-actions');
+            const listEl = document.getElementById('ucs-cloud-list');
+
+            if (!isSupabaseConfigured() || !supabaseClient) {
+                loggedOutEl.classList.remove('hidden');
+                loggedOutEl.textContent = 'Облачное сохранение ещё не настроено (нужен Supabase).';
+                actionsEl.classList.add('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session || !session.user) {
+                loggedOutEl.classList.remove('hidden');
+                actionsEl.classList.add('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+
+            loggedOutEl.classList.add('hidden');
+            actionsEl.classList.remove('hidden');
+            await loadUcsDocumentsList();
+        }
+
+        async function loadUcsDocumentsList() {
+            const listEl = document.getElementById('ucs-cloud-list');
+            listEl.innerHTML = '<div class="text-xs text-gray-400">Загрузка…</div>';
+
+            const { data, error } = await supabaseClient
+                .from('ucs_documents')
+                .select('id, title, updated_at')
+                .order('updated_at', { ascending: false });
+
+            if (error) {
+                listEl.innerHTML = `<div class="text-xs text-rose-600">Не удалось загрузить список: ${escapeHtml(error.message)}</div>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                listEl.innerHTML = '<div class="text-xs text-gray-400">Пока нет сохранённых сценариев.</div>';
+                return;
+            }
+
+            listEl.innerHTML = data.map(doc => {
+                const date = new Date(doc.updated_at).toLocaleString('ru-RU', {
+                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                const activeMark = doc.id === currentUcsDocId ? ' · сейчас открыт' : '';
+                return `
+                    <div class="flex items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2">
+                        <div class="min-w-0">
+                            <div class="text-sm font-semibold text-gray-800 truncate">${escapeHtml(doc.title || 'Без названия')}</div>
+                            <div class="text-xs text-gray-400">${date}${activeMark}</div>
+                        </div>
+                        <div class="flex gap-1.5 shrink-0">
+                            <button onclick="openUcsDocument('${doc.id}')" class="px-2.5 py-1 rounded-lg border-2 border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95">Открыть</button>
+                            <button onclick="deleteUcsDocument('${doc.id}')" class="px-2.5 py-1 rounded-lg text-rose-500 hover:bg-rose-50 text-xs font-bold transition-transform active:scale-95" title="Удалить">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function saveCurrentUcs(saveAsNew) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session || !session.user) {
+                showUcsCloudStatus('Нужно войти в Кабинет, чтобы сохранять сценарии.', true);
+                return;
+            }
+
+            const title = ucsDocTitleFromForm();
+            const payload = buildUcsPayload();
+
+            try {
+                if (currentUcsDocId && !saveAsNew) {
+                    const { error } = await supabaseClient
+                        .from('ucs_documents')
+                        .update({ title, data: payload, updated_at: new Date().toISOString() })
+                        .eq('id', currentUcsDocId);
+                    if (error) throw error;
+                    showUcsCloudStatus('💾 Сценарий обновлён.', false);
+                } else {
+                    const { data, error } = await supabaseClient
+                        .from('ucs_documents')
+                        .insert({ user_id: session.user.id, title, data: payload })
+                        .select('id')
+                        .single();
+                    if (error) throw error;
+                    currentUcsDocId = data.id;
+                    showUcsCloudStatus('💾 Сценарий сохранён как новый.', false);
+                }
+                await loadUcsDocumentsList();
+            } catch (err) {
+                showUcsCloudStatus('Не удалось сохранить: ' + (err.message || err), true);
+            }
+        }
+
+        async function openUcsDocument(id) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('ucs_documents')
+                    .select('data')
+                    .eq('id', id)
+                    .single();
+                if (error) throw error;
+
+                applyUcsPayload(data.data);
+                currentUcsDocId = id;
+                rerenderUcsForm();
+                await loadUcsDocumentsList();
+                showUcsCloudStatus('📂 Сценарий загружен в форму.', false);
+            } catch (err) {
+                showUcsCloudStatus('Не удалось открыть сценарий: ' + (err.message || err), true);
+            }
+        }
+
+        async function deleteUcsDocument(id) {
+            const confirmed = confirm('Удалить этот сохранённый сценарий? Это действие нельзя отменить.');
+            if (!confirmed) return;
+
+            try {
+                const { error } = await supabaseClient.from('ucs_documents').delete().eq('id', id);
+                if (error) throw error;
+                if (currentUcsDocId === id) currentUcsDocId = null;
+                showUcsCloudStatus('🗑️ Сценарий удалён.', false);
+                await loadUcsDocumentsList();
+            } catch (err) {
+                showUcsCloudStatus('Не удалось удалить: ' + (err.message || err), true);
+            }
+        }
+
         function initUcsTab() {
             loadUcsFromStorage();
-            renderParticipants();
-            renderMainSteps();
-            renderAltFlows();
-            renderSpecGroups();
-            renderUcsPreview();
-            document.querySelectorAll('.ucs-autogrow').forEach(autoGrowTextarea);
+            rerenderUcsForm();
+            refreshUcsCloudUI();
         }
 
         // Initialize state on load
