@@ -102,6 +102,22 @@
         @media (prefers-reduced-motion: reduce) {
             .fade-in-up { animation: none !important; }
         }
+
+        /* Drag-and-drop reordering (UCS main/alt flow steps) */
+        .ucs-drag-row {
+            transition: opacity 0.15s ease, outline-color 0.15s ease;
+        }
+        .ucs-drag-over {
+            outline: 2px dashed #6366f1;
+            outline-offset: 2px;
+            border-radius: 0.5rem;
+        }
+        .ucs-drag-handle {
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0 2px;
+            touch-action: none;
+        }
     </style>
 </head>
 <body class="relative bg-gradient-to-br from-slate-50 via-indigo-50/40 to-purple-50/40 text-gray-800 antialiased min-h-screen overflow-x-hidden">
@@ -517,12 +533,12 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-1">Предусловия</label>
-                        <textarea id="ucs-preconditions" rows="2" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none" placeholder="Клиент не авторизован"></textarea>
+                        <textarea id="ucs-preconditions" rows="2" oninput="autoGrowTextarea(this); renderUcsPreview();" class="ucs-autogrow w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none overflow-hidden" placeholder="Клиент не авторизован"></textarea>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-1">Триггеры</label>
-                        <textarea id="ucs-triggers" rows="2" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none" placeholder="Клиент нажал на кнопку «Войти»"></textarea>
+                        <textarea id="ucs-triggers" rows="2" oninput="autoGrowTextarea(this); renderUcsPreview();" class="ucs-autogrow w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none overflow-hidden" placeholder="Клиент нажал на кнопку «Войти»"></textarea>
                     </div>
 
                     <!-- Основной поток -->
@@ -545,7 +561,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-1">Постусловия</label>
-                        <textarea id="ucs-postconditions" rows="2" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none" placeholder="Клиент авторизован в системе"></textarea>
+                        <textarea id="ucs-postconditions" rows="2" oninput="autoGrowTextarea(this); renderUcsPreview();" class="ucs-autogrow w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none overflow-hidden" placeholder="Клиент авторизован в системе"></textarea>
                     </div>
 
                     <!-- Специальные требования -->
@@ -1757,14 +1773,68 @@
         let ucsData = defaultUcsData();
         let ucsSpecGroups = defaultUcsSpecGroups();
 
+        // ---- Drag-and-drop (перетаскивание строк для смены порядка) ----
+        let ucsDragFromIdx = null;
+
+        function moveArrayItem(arr, fromIdx, toIdx) {
+            if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= arr.length || toIdx >= arr.length) return;
+            const [item] = arr.splice(fromIdx, 1);
+            arr.splice(toIdx, 0, item);
+        }
+
+        // Wires up HTML5 drag-and-drop on every ".ucs-drag-row" inside `container`.
+        // Each row must have data-idx set to its current position. `onReorder(from, to)`
+        // is called with the row's own list-relative indices when a row is dropped
+        // onto another row within the same container.
+        function setupDragAndDrop(container, onReorder) {
+            const rows = container.querySelectorAll(':scope > .ucs-drag-row');
+            rows.forEach(row => {
+                const handle = row.querySelector('.ucs-drag-handle');
+                if (!handle) return;
+
+                handle.addEventListener('dragstart', (e) => {
+                    ucsDragFromIdx = Number(row.dataset.idx);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(ucsDragFromIdx));
+                    try { e.dataTransfer.setDragImage(row, 16, 16); } catch (err) { /* ignore */ }
+                    row.classList.add('opacity-40');
+                });
+                handle.addEventListener('dragend', () => {
+                    row.classList.remove('opacity-40');
+                    rows.forEach(r => r.classList.remove('ucs-drag-over'));
+                    ucsDragFromIdx = null;
+                });
+
+                row.addEventListener('dragover', (e) => {
+                    if (ucsDragFromIdx === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    row.classList.add('ucs-drag-over');
+                });
+                row.addEventListener('dragleave', () => {
+                    row.classList.remove('ucs-drag-over');
+                });
+                row.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    row.classList.remove('ucs-drag-over');
+                    const toIdx = Number(row.dataset.idx);
+                    if (ucsDragFromIdx === null || ucsDragFromIdx === toIdx) return;
+                    onReorder(ucsDragFromIdx, toIdx);
+                    ucsDragFromIdx = null;
+                });
+            });
+        }
+
         // ---- Основной поток ----
         function renderMainSteps() {
             const container = document.getElementById('ucs-main-steps');
             container.innerHTML = '';
             ucsData.mainFlow.forEach((val, idx) => {
                 const row = document.createElement('div');
-                row.className = 'flex items-center gap-2';
+                row.className = 'flex items-center gap-2 ucs-drag-row';
+                row.dataset.idx = idx;
                 row.innerHTML = `
+                    <span class="ucs-drag-handle cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 select-none" draggable="true" title="Перетащить для изменения порядка">⠿</span>
                     <span class="w-6 text-xs font-bold text-gray-400 shrink-0">${idx + 1}.</span>
                     <input type="text" value="${escapeHtml(val)}" data-idx="${idx}"
                         class="ucs-main-step-input flex-1 border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
@@ -1778,6 +1848,11 @@
                     ucsData.mainFlow[Number(e.target.dataset.idx)] = e.target.value;
                     renderUcsPreview();
                 });
+            });
+            setupDragAndDrop(container, (fromIdx, toIdx) => {
+                moveArrayItem(ucsData.mainFlow, fromIdx, toIdx);
+                renderMainSteps();
+                renderUcsPreview();
             });
         }
         function addMainStep() {
@@ -1818,8 +1893,10 @@
                 const stepsContainer = group.querySelector(`#ucs-alt-steps-${gIdx}`);
                 flow.steps.forEach((val, sIdx) => {
                     const row = document.createElement('div');
-                    row.className = 'flex items-center gap-2';
+                    row.className = 'flex items-center gap-2 ucs-drag-row';
+                    row.dataset.idx = sIdx;
                     row.innerHTML = `
+                        <span class="ucs-drag-handle cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 select-none" draggable="true" title="Перетащить для изменения порядка">⠿</span>
                         <span class="w-16 text-xs font-mono text-gray-400 shrink-0">${flow.branchFrom}.${letter}.${sIdx + 1}</span>
                         <input type="text" value="${escapeHtml(val)}" data-gidx="${gIdx}" data-sidx="${sIdx}"
                             class="ucs-alt-step-input flex-1 border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
@@ -1827,6 +1904,12 @@
                         <button onclick="removeAltStep(${gIdx}, ${sIdx})" class="shrink-0 w-6 h-6 rounded-lg text-rose-400 hover:bg-rose-50 flex items-center justify-center text-xs font-bold transition-transform active:scale-95" title="Удалить шаг">✕</button>
                     `;
                     stepsContainer.appendChild(row);
+                });
+
+                setupDragAndDrop(stepsContainer, (fromIdx, toIdx) => {
+                    moveArrayItem(flow.steps, fromIdx, toIdx);
+                    renderAltFlows();
+                    renderUcsPreview();
                 });
             });
 
@@ -2126,12 +2209,20 @@
             renderUcsPreview();
         }
 
+        // Растягивает textarea по высоте содержимого, чтобы не появлялся
+        // внутренний скролл после пары строк.
+        function autoGrowTextarea(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+
         function initUcsTab() {
             loadUcsFromStorage();
             renderMainSteps();
             renderAltFlows();
             renderSpecGroups();
             renderUcsPreview();
+            document.querySelectorAll('.ucs-autogrow').forEach(autoGrowTextarea);
         }
 
         // Initialize state on load
