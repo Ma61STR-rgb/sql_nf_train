@@ -475,10 +475,17 @@
         <!-- ================= UCS TAB ================= -->
         <section id="tab-ucs" class="tab-content hidden space-y-8">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h2 class="text-2xl font-bold text-gray-950 flex items-center gap-2">
-                    📋 Конструктор UCS (Use Case Specification)
-                </h2>
-                <p class="text-gray-500 text-sm mt-1">Заполни форму по шаблону — справа появится готовая таблица для вставки в документацию. Строки основного и альтернативных потоков можно добавлять и удалять.</p>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-950 flex items-center gap-2">
+                            📋 Конструктор UCS (Use Case Specification)
+                        </h2>
+                        <p class="text-gray-500 text-sm mt-1">Заполни форму по шаблону — справа появится готовая таблица для вставки в документацию. Данные сохраняются в этом браузере автоматически, обновление страницы их не сотрёт.</p>
+                    </div>
+                    <button onclick="clearUcsForm()" class="shrink-0 px-4 py-2 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 flex items-center gap-1.5 whitespace-nowrap transition-transform active:scale-95">
+                        🗑️ Очистить всё
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -1727,16 +1734,28 @@
         }
 
         const ALT_FLOW_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
-
-        let ucsData = {
-            mainFlow: ['', '', ''],
-            altFlows: [
-                { branchFrom: 1, title: '', steps: ['', '', ''] }
-            ]
-        };
-        let ucsSpecGroups = [
-            { title: '', items: ['', ''] }
+        const UCS_STORAGE_KEY = 'sqlNfTrainerUcsForm';
+        const UCS_STATIC_FIELD_IDS = [
+            'ucs-id', 'ucs-name', 'ucs-scope', 'ucs-participants',
+            'ucs-preconditions', 'ucs-triggers', 'ucs-postconditions'
         ];
+
+        function defaultUcsData() {
+            return {
+                mainFlow: ['', '', ''],
+                altFlows: [
+                    { branchFrom: 1, title: '', steps: ['', '', ''] }
+                ]
+            };
+        }
+        function defaultUcsSpecGroups() {
+            return [
+                { title: '', items: ['', ''] }
+            ];
+        }
+
+        let ucsData = defaultUcsData();
+        let ucsSpecGroups = defaultUcsSpecGroups();
 
         // ---- Основной поток ----
         function renderMainSteps() {
@@ -1977,6 +1996,7 @@
                     </tr>
                 `;
             }).join('');
+            saveUcsToStorage();
         }
 
         function buildUcsPlainText() {
@@ -2034,7 +2054,80 @@
             }
         }
 
+        // ---- Автосохранение в localStorage ----
+        function saveUcsToStorage() {
+            try {
+                const staticFields = {};
+                UCS_STATIC_FIELD_IDS.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) staticFields[id] = el.value;
+                });
+                const payload = {
+                    staticFields,
+                    mainFlow: ucsData.mainFlow,
+                    altFlows: ucsData.altFlows,
+                    specGroups: ucsSpecGroups
+                };
+                localStorage.setItem(UCS_STORAGE_KEY, JSON.stringify(payload));
+            } catch (err) {
+                // localStorage может быть недоступен (приватный режим и т.п.) — просто не сохраняем
+            }
+        }
+
+        function loadUcsFromStorage() {
+            try {
+                const raw = localStorage.getItem(UCS_STORAGE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+
+                UCS_STATIC_FIELD_IDS.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && data.staticFields && typeof data.staticFields[id] === 'string') {
+                        el.value = data.staticFields[id];
+                    }
+                });
+
+                if (Array.isArray(data.mainFlow) && data.mainFlow.length > 0) {
+                    ucsData.mainFlow = data.mainFlow;
+                }
+                if (Array.isArray(data.altFlows) && data.altFlows.length > 0) {
+                    ucsData.altFlows = data.altFlows;
+                }
+                if (Array.isArray(data.specGroups) && data.specGroups.length > 0) {
+                    ucsSpecGroups = data.specGroups;
+                }
+                return true;
+            } catch (err) {
+                return false;
+            }
+        }
+
+        function clearUcsForm() {
+            const confirmed = confirm('Точно очистить всю форму UCS? Это действие нельзя отменить.');
+            if (!confirmed) return;
+
+            UCS_STATIC_FIELD_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+
+            ucsData = defaultUcsData();
+            ucsSpecGroups = defaultUcsSpecGroups();
+
+            try {
+                localStorage.removeItem(UCS_STORAGE_KEY);
+            } catch (err) {
+                // ignore
+            }
+
+            renderMainSteps();
+            renderAltFlows();
+            renderSpecGroups();
+            renderUcsPreview();
+        }
+
         function initUcsTab() {
+            loadUcsFromStorage();
             renderMainSteps();
             renderAltFlows();
             renderSpecGroups();
