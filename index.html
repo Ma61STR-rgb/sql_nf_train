@@ -520,15 +520,17 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-600 mb-1">Область действия</label>
-                            <input id="ucs-scope" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="Сайт">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Область действия</label>
+                        <input id="ucs-scope" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="Сайт">
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-gray-600">Участники</label>
+                            <button onclick="addParticipant()" class="text-xs font-semibold text-brand-600 hover:text-brand-800 transition-transform active:scale-95">+ Добавить участника</button>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-600 mb-1">Участники</label>
-                            <input id="ucs-participants" type="text" oninput="renderUcsPreview()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" placeholder="Клиент, система">
-                        </div>
+                        <div id="ucs-participants-list" class="space-y-2"></div>
                     </div>
 
                     <div>
@@ -586,7 +588,7 @@
                     </div>
                     <div id="ucs-copy-status" class="hidden rounded-xl p-2.5 text-xs font-medium"></div>
                     <div id="ucs-preview-wrap" class="overflow-x-auto border border-gray-200 rounded-xl">
-                        <table id="ucs-preview-table" class="min-w-full text-xs sm:text-sm text-left border-collapse"></table>
+                        <table id="ucs-preview-table" class="min-w-full text-left"></table>
                     </div>
                 </div>
 
@@ -1752,12 +1754,13 @@
         const ALT_FLOW_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
         const UCS_STORAGE_KEY = 'sqlNfTrainerUcsForm';
         const UCS_STATIC_FIELD_IDS = [
-            'ucs-id', 'ucs-name', 'ucs-scope', 'ucs-participants',
+            'ucs-id', 'ucs-name', 'ucs-scope',
             'ucs-preconditions', 'ucs-triggers', 'ucs-postconditions'
         ];
 
         function defaultUcsData() {
             return {
+                participants: ['', ''],
                 mainFlow: ['', '', ''],
                 altFlows: [
                     { branchFrom: 1, title: '', steps: ['', '', ''] }
@@ -1825,6 +1828,40 @@
             });
         }
 
+        // ---- Участники ----
+        function renderParticipants() {
+            const container = document.getElementById('ucs-participants-list');
+            container.innerHTML = '';
+            ucsData.participants.forEach((val, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                row.innerHTML = `
+                    <span class="text-gray-400 text-xs shrink-0">•</span>
+                    <input type="text" value="${escapeHtml(val)}" data-idx="${idx}"
+                        class="ucs-participant-input flex-1 border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                        placeholder="Например, Клиент">
+                    <button onclick="removeParticipant(${idx})" class="shrink-0 w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-50 flex items-center justify-center font-bold transition-transform active:scale-95" title="Удалить участника">✕</button>
+                `;
+                container.appendChild(row);
+            });
+            container.querySelectorAll('.ucs-participant-input').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    ucsData.participants[Number(e.target.dataset.idx)] = e.target.value;
+                    renderUcsPreview();
+                });
+            });
+        }
+        function addParticipant() {
+            ucsData.participants.push('');
+            renderParticipants();
+            renderUcsPreview();
+        }
+        function removeParticipant(idx) {
+            ucsData.participants.splice(idx, 1);
+            renderParticipants();
+            renderUcsPreview();
+        }
+
         // ---- Основной поток ----
         function renderMainSteps() {
             const container = document.getElementById('ucs-main-steps');
@@ -1878,7 +1915,7 @@
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-xs font-bold text-brand-600 shrink-0">Поток ${letter})</span>
                         <input type="text" value="${escapeHtml(flow.title)}" data-gidx="${gIdx}"
-                            class="ucs-alt-title-input flex-1 min-w-[140px] border-2 border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                            class="ucs-alt-title-input flex-1 min-w-[140px] border-2 border-gray-200 rounded-lg px-2.5 py-1.5 text-sm font-semibold focus:border-brand-500 focus:outline-none"
                             placeholder="Название/условие потока">
                         <label class="text-xs text-gray-500 shrink-0">от шага</label>
                         <input type="number" min="1" value="${flow.branchFrom}" data-gidx="${gIdx}"
@@ -2054,7 +2091,7 @@
                 ['Идентификатор', val('ucs-id')],
                 ['Название', val('ucs-name')],
                 ['Область действия', val('ucs-scope')],
-                ['Участники', val('ucs-participants')],
+                ['Участники', ucsData.participants.filter(p => p && p.trim()).join(', ')],
                 ['Предусловия', val('ucs-preconditions')],
                 ['Триггеры', val('ucs-triggers')],
                 ['Основной поток', mainFlowText],
@@ -2064,18 +2101,57 @@
             ];
         }
 
+        // HTML-версии "Альтернативных потоков" и "Специальных требований" с жирным
+        // заголовком (название потока / название группы требований). Используются
+        // только для предпросмотра и копирования таблицей — в текстовую копию
+        // (buildUcsPlainText) не попадают, там всё остаётся обычным текстом.
+        function buildAltFlowsHtml() {
+            return ucsData.altFlows.map((flow, gIdx) => {
+                const letter = ALT_FLOW_LETTERS[gIdx] || `#${gIdx + 1}`;
+                const headerHtml = `<strong>${escapeHtml(`${flow.branchFrom}.${letter}) ${flow.title || '…'}`)}</strong>`;
+                const stepsHtml = flow.steps
+                    .map((s, sIdx) => escapeHtml(`${flow.branchFrom}.${letter}.${sIdx + 1} ${s || '…'}`))
+                    .join('\n');
+                return [headerHtml, stepsHtml].filter(Boolean).join('\n');
+            }).join('\n\n');
+        }
+
+        function buildSpecGroupsHtml() {
+            return ucsSpecGroups.map(group => {
+                const headerHtml = `<strong>${escapeHtml(group.title || '…')}</strong>`;
+                const itemsHtml = group.items.map(i => escapeHtml(`- ${i || '…'}`)).join('\n');
+                return [headerHtml, itemsHtml].filter(Boolean).join('\n');
+            }).join('\n\n');
+        }
+
+        // Шрифт, который должен сохраняться при копировании таблицы в Word/Docs/Confluence.
+        // Задаём его инлайн-стилем на каждой ячейке, а не только классом Tailwind:
+        // при копировании через execCommand('copy') внешние стили из <style>/CDN
+        // не всегда переживают вставку в другое приложение, а инлайн-style — переживает.
+        const UCS_TABLE_FONT_STYLE = 'font-family: Arial, Helvetica, sans-serif; font-size: 11pt;';
+
         function renderUcsPreview() {
             const rows = buildUcsRows();
+            const altFlowsHtml = buildAltFlowsHtml();
+            const specGroupsHtml = buildSpecGroupsHtml();
             const table = document.getElementById('ucs-preview-table');
+            table.setAttribute('style', UCS_TABLE_FONT_STYLE + ' border-collapse: collapse;');
             table.innerHTML = rows.map(([label, value]) => {
-                const escapedValue = escapeHtml(value);
-                const cell = escapedValue
-                    ? escapedValue
+                let cellHtml;
+                if (label === 'Альтернативные потоки') {
+                    cellHtml = altFlowsHtml;
+                } else if (label === 'Специальные требования') {
+                    cellHtml = specGroupsHtml;
+                } else {
+                    cellHtml = escapeHtml(value);
+                }
+                const cell = cellHtml
+                    ? cellHtml
                     : '<span class="text-gray-300 italic">—</span>';
                 return `
                     <tr class="border-b border-gray-200 align-top">
-                        <th class="w-40 sm:w-48 shrink-0 bg-gray-50 text-left font-bold text-gray-700 px-3 py-2.5 border-r border-gray-200 align-top">${escapeHtml(label)}</th>
-                        <td class="px-3 py-2.5 whitespace-pre-wrap text-gray-800">${cell}</td>
+                        <th class="w-40 sm:w-48 shrink-0 bg-gray-50 text-left font-bold text-gray-700 px-3 py-2.5 border-r border-gray-200 align-top" style="${UCS_TABLE_FONT_STYLE}">${escapeHtml(label)}</th>
+                        <td class="px-3 py-2.5 whitespace-pre-wrap text-gray-800" style="${UCS_TABLE_FONT_STYLE}">${cell}</td>
                     </tr>
                 `;
             }).join('');
@@ -2147,6 +2223,7 @@
                 });
                 const payload = {
                     staticFields,
+                    participants: ucsData.participants,
                     mainFlow: ucsData.mainFlow,
                     altFlows: ucsData.altFlows,
                     specGroups: ucsSpecGroups
@@ -2170,6 +2247,9 @@
                     }
                 });
 
+                if (Array.isArray(data.participants) && data.participants.length > 0) {
+                    ucsData.participants = data.participants;
+                }
                 if (Array.isArray(data.mainFlow) && data.mainFlow.length > 0) {
                     ucsData.mainFlow = data.mainFlow;
                 }
@@ -2203,6 +2283,7 @@
                 // ignore
             }
 
+            renderParticipants();
             renderMainSteps();
             renderAltFlows();
             renderSpecGroups();
@@ -2218,6 +2299,7 @@
 
         function initUcsTab() {
             loadUcsFromStorage();
+            renderParticipants();
             renderMainSteps();
             renderAltFlows();
             renderSpecGroups();
