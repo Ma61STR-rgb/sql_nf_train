@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Индексатор — игра про индексы в базе данных</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ECEFF8;--surface:#FFFFFF;--surface-2:#F4F6FC;--line:#D2D7EB;--text:#1B2040;--muted:#5B6292;
+  --heap:#3867DC;--heap-soft:rgba(56,103,220,.10);
+  --index:#0B9677;--index-soft:rgba(11,150,119,.12);
+  --gold:#A87200;--gold-soft:rgba(245,185,30,.26);--gold-line:#E0A516;
+  --bad:#D23F3F;--bad-soft:rgba(210,63,63,.10);
+  --code-bg:#1B2040;--code-text:#E6E9F8;--code-kw:#9DB8FF;--code-str:#FFD479;--code-num:#6FE3C4;
+  --shadow:0 1px 0 rgba(27,32,64,.05),0 16px 32px -20px rgba(27,32,64,.4);
+  --font-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --font-body:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-code:'JetBrains Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15182B;--surface:#1F2442;--surface-2:#262C50;--line:#363D69;--text:#E9EBF7;--muted:#9DA4CE;
+    --heap:#7FA7FF;--heap-soft:rgba(127,167,255,.14);
+    --index:#43D9B4;--index-soft:rgba(67,217,180,.15);
+    --gold:#FFC857;--gold-soft:rgba(255,200,87,.20);--gold-line:#FFC857;
+    --bad:#FF7A7A;--bad-soft:rgba(255,122,122,.14);
+    --code-bg:#0F1226;--code-text:#E6E9F8;
+    --shadow:0 1px 0 rgba(0,0,0,.2),0 18px 36px -20px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15182B;--surface:#1F2442;--surface-2:#262C50;--line:#363D69;--text:#E9EBF7;--muted:#9DA4CE;
+  --heap:#7FA7FF;--heap-soft:rgba(127,167,255,.14);
+  --index:#43D9B4;--index-soft:rgba(67,217,180,.15);
+  --gold:#FFC857;--gold-soft:rgba(255,200,87,.20);--gold-line:#FFC857;
+  --bad:#FF7A7A;--bad-soft:rgba(255,122,122,.14);
+  --code-bg:#0F1226;--code-text:#E6E9F8;
+  --shadow:0 1px 0 rgba(0,0,0,.2),0 18px 36px -20px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 80px);background:var(--bg);}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:16px/1.55 var(--font-body);-webkit-font-smoothing:antialiased;}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--heap);outline-offset:2px}
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* HUD */
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:24px;padding:12px clamp(16px,4vw,40px);background:var(--bg);background:color-mix(in srgb,var(--bg) 84%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font:700 17px var(--font-display);letter-spacing:-.01em;white-space:nowrap;cursor:pointer;background:none;border:0;padding:0}
+.brand svg{width:26px;height:26px}
+.steps{display:flex;gap:6px;list-style:none;margin:0 auto;padding:0}
+.steps li{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:99px;font-size:13.5px;font-weight:600;color:var(--muted);transition:background .25s,color .25s}
+.steps li::before{content:attr(data-n);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);font:700 11px var(--font-display);transition:all .25s}
+.steps li.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.steps li.active::before{border-color:var(--index);background:var(--index);color:var(--surface)}
+.steps li.done::before{content:"✓";border-color:var(--index);color:var(--index)}
+.score{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.score span{font-size:13px;color:var(--muted);font-weight:600}
+#score{font:800 24px var(--font-display);font-variant-numeric:tabular-nums;color:var(--gold);display:inline-block;min-width:2ch;text-align:right}
+#score.bump{animation:bump .4s ease}
+@keyframes bump{40%{transform:scale(1.18)}}
+@media (max-width:820px){.steps li span{display:none}.steps li{padding:4px}}
+@media (max-width:480px){.brand b{display:none}.hud{gap:12px}}
+
+main{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:36px clamp(16px,4vw,40px) 96px}
+
+/* typography */
+h1,h2,h3{font-family:var(--font-display);letter-spacing:-.02em;margin:0}
+.lead{max-width:68ch;color:var(--text);margin:10px 0 0;font-size:16.5px}
+.lead b{font-weight:700}
+.muted{color:var(--muted)}
+code{font:500 .92em var(--font-code);background:var(--surface-2);padding:1px 6px;border-radius:5px}
+.term{border-bottom:1.5px dotted currentColor;cursor:help;border-radius:2px}
+.term:hover{color:var(--index)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--text);font-weight:700;font-size:15px;cursor:pointer;transition:transform .15s,background .2s,border-color .2s,opacity .2s}
+.btn:hover:not(:disabled){transform:translateY(-1px);border-color:var(--text)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn.primary{background:var(--text);border-color:var(--text);color:var(--bg)}
+.btn.ghost{background:transparent}
+.btn.small{padding:7px 12px;font-size:13px;border-radius:9px}
+.btn:disabled{opacity:.45;cursor:default}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3vw,28px);box-shadow:var(--shadow)}
+
+/* intro */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;min-height:calc(100vh - 180px)}
+.title{font:800 clamp(38px,6.6vw,80px)/.95 var(--font-display);letter-spacing:-.045em;margin:0 0 22px}
+.title .dot{color:var(--index)}
+.hero .lead{font-size:18px}
+.plan{list-style:none;padding:0;margin:28px 0 30px;display:grid;gap:10px;counter-reset:p}
+.plan li{counter-increment:p;display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:baseline}
+.plan li::before{content:counter(p);font:700 15px var(--font-display);color:var(--index)}
+.plan b{font-weight:700}
+.hero-card{padding:22px}
+.hero-tree{width:100%;height:auto;display:block}
+.hero-tree path{stroke:var(--line);stroke-width:2;fill:none}
+.hero-tree .links{stroke-width:2;stroke-dasharray:2 3}
+.hero-tree rect{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5}
+.hero-tree text{font:600 12.5px var(--font-body);fill:var(--muted);text-anchor:middle}
+.hero-tree text.k{font:800 15px var(--font-display);fill:var(--index)}
+.hero-tree path.hl{stroke:var(--index);animation:trace 5s infinite both}
+.hero-tree rect.hl{stroke:var(--index);fill:var(--index-soft);animation:traceFill 5s infinite both}
+.hero-tree .s2{animation-delay:.4s!important}.hero-tree .s3{animation-delay:.8s!important}.hero-tree .s4{animation-delay:1.2s!important}.hero-tree .s5{animation-delay:1.6s!important}
+@keyframes trace{0%{stroke:var(--line)}6%,64%{stroke:var(--index)}78%,100%{stroke:var(--line)}}
+@keyframes traceFill{0%{stroke:var(--line);fill:var(--surface-2)}6%,64%{stroke:var(--index);fill:var(--index-soft)}78%,100%{stroke:var(--line);fill:var(--surface-2)}}
+.hero-caption{font-size:13.5px;color:var(--muted);margin:12px 4px 0}
+@media (max-width:860px){.hero{grid-template-columns:1fr;gap:28px;min-height:0}}
+
+/* level head */
+.lvl-head{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;margin-bottom:26px}
+.lvl-num{font:800 clamp(56px,8vw,88px)/.8 var(--font-display);color:var(--index);letter-spacing:-.05em;padding-top:4px}
+.lvl-head h2{font-size:clamp(24px,3.4vw,36px);line-height:1.12;font-weight:700}
+@media (max-width:560px){.lvl-head{grid-template-columns:1fr;gap:6px}}
+
+/* level 1 */
+.bar-top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.meters{display:flex;gap:28px}
+.meter{display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:8px}
+.meter span{grid-column:1/-1;font-size:13px;color:var(--muted);font-weight:600}
+.meter b{font:800 32px/1.1 var(--font-display);font-variant-numeric:tabular-nums;color:var(--heap)}
+.meter.gold b{color:var(--gold)}
+.meter small{color:var(--muted);font-weight:600}
+.pop{animation:bump .3s ease}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+
+.split.on{display:grid;grid-template-columns:minmax(270px,350px) 1fr;gap:26px;align-items:start}
+@media (max-width:780px){.split.on{grid-template-columns:1fr}}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px}
+.grid.locked .page{cursor:default}
+.page{appearance:none;border:0;padding:0;background:none;height:132px;perspective:800px;cursor:pointer;border-radius:6px;text-align:left}
+.page .inner{position:relative;display:block;width:100%;height:100%;transition:transform .55s cubic-bezier(.2,.7,.2,1);transform-style:preserve-3d}
+.page.open .inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;-webkit-backface-visibility:hidden;backface-visibility:hidden;border-radius:6px;border:1px solid var(--line);padding:8px 7px 6px;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.front{background:linear-gradient(225deg,var(--bg) 0 11px,var(--line) 11px 12.5px,var(--surface) 12.5px);transition:border-color .2s,box-shadow .2s}
+.page:not(.open):hover .front{border-color:var(--heap);box-shadow:0 8px 18px -12px var(--heap)}
+.front .lines{flex:1;margin:10px 2px 4px;background:repeating-linear-gradient(to bottom,var(--line) 0 2px,transparent 2px 13px);opacity:.75}
+.back{transform:rotateY(180deg);background:var(--surface-2)}
+.pno{font:700 11px var(--font-body);color:var(--muted);margin-bottom:3px}
+.row{display:flex;justify-content:space-between;font-size:11px;line-height:15.5px;font-variant-numeric:tabular-nums;padding:0 4px;border-radius:3px}
+.row i{font-style:normal;color:var(--muted)}
+.row b{font-weight:600}
+.row.hit{background:var(--gold-soft)}
+.row.hit b{font-weight:800;color:var(--gold)}
+.page.target .face{box-shadow:inset 0 0 0 2px var(--gold-line)}
+.page.wrong .back{box-shadow:inset 0 0 0 2px var(--bad)}
+.page.revealed:not(.target) .back{opacity:.55}
+
+.tree-col{display:flex;flex-direction:column}
+.node{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:3px 14px 14px 14px;padding:16px;margin-top:24px;box-shadow:var(--shadow);animation:drop .45s cubic-bezier(.2,.7,.2,1) both}
+.node:first-child{margin-top:24px}
+.node .tab{position:absolute;top:-24px;left:-1px;height:24px;padding:0 12px;border:1px solid var(--line);border-bottom:0;border-radius:9px 9px 0 0;background:var(--surface);font:700 12px var(--font-body);color:var(--index);display:flex;align-items:center;gap:10px}
+.node .tab span{color:var(--muted);font-weight:500}
+.keys{display:inline-flex;border:1.5px solid var(--index);border-radius:7px;overflow:hidden;max-width:100%}
+.keys span{padding:6px 14px;font:700 14px var(--font-display);color:var(--index);background:var(--index-soft);font-variant-numeric:tabular-nums}
+.keys span+span{border-left:1.5px solid var(--index)}
+.ask{margin:12px 0 0;font-size:14.5px}
+.branches{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.branch,.entry{padding:8px 12px;border-radius:9px;border:1.5px solid var(--line);background:var(--surface-2);cursor:pointer;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;transition:border-color .2s,background .2s,transform .15s}
+.branch:hover:not(:disabled),.entry:hover:not(:disabled){border-color:var(--index);transform:translateY(-1px)}
+.branch.chosen,.entry.chosen{background:var(--index);border-color:var(--index);color:var(--surface)}
+.branch.nope,.entry.nope{border-color:var(--bad);color:var(--bad);background:var(--bad-soft);text-decoration:line-through}
+.branch:disabled,.entry:disabled{cursor:default}
+.entries{display:grid;gap:6px;margin-top:10px}
+.entry{display:grid;grid-template-columns:36px 20px 1fr;text-align:left;align-items:center}
+.entry b{font-family:var(--font-display);font-size:14px}
+.entry span{color:var(--muted)}
+.entry i{font-style:normal;font-weight:600}
+.entry.chosen span{color:inherit}
+.note{margin:8px 0 0;font-size:13.5px;color:var(--bad);min-height:0}
+.note:empty{display:none}
+.connector{width:2px;height:22px;margin:0 0 -22px 30px;background:var(--index);transform-origin:top;animation:grow .3s ease both;position:relative;z-index:1}
+@keyframes drop{from{opacity:0;transform:translateY(-10px)}}
+@keyframes grow{from{transform:scaleY(0)}}
+.shake{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+
+.result{margin-top:24px;animation:drop .45s both}
+.result h3{font-size:22px;margin-bottom:10px}
+.result p{max-width:70ch;margin:10px 0}
+.pts{font:800 26px var(--font-display);color:var(--gold)}
+.pts.zero{color:var(--muted)}
+.compare{display:grid;gap:10px;margin:16px 0}
+
+/* shared bars */
+.cost-row{display:grid;grid-template-columns:140px 1fr 110px;align-items:center;gap:12px;font-size:14px}
+.cost-row b{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.cost-row.mine span{font-weight:800}
+.cost-row.mine span::after{content:" (твой выбор)";font-weight:500;color:var(--muted);font-size:12px}
+.track{height:12px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.track.na{background:repeating-linear-gradient(45deg,var(--surface-2) 0 6px,var(--line) 6px 8px)}
+.fill{height:100%;width:0;border-radius:99px;background:var(--heap);transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.go .fill{width:var(--w)}
+.fill.index,.cost-row.best .fill{background:var(--index)}
+@media (max-width:560px){.cost-row{grid-template-columns:96px 1fr 76px;font-size:12.5px}.cost-row.mine span::after{content:" ←"}}
+
+/* level 2 */
+.round-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.counter{font-weight:700;color:var(--muted);font-size:14px}
+pre.sql{margin:0;background:var(--code-bg);color:var(--code-text);font:14px/1.65 var(--font-code);padding:16px 18px;border-radius:12px;overflow-x:auto;white-space:pre}
+.sql .kw{color:var(--code-kw);font-weight:600}.sql .cm{color:#8C93BC;font-style:italic}.sql .str{color:var(--code-str)}.sql .num{color:var(--code-num)}
+.facts{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:16px 0;font-size:14.5px}
+.facts dt{color:var(--muted);font-weight:600}
+.facts dd{margin:0;font-weight:600}
+.hint-text{margin:0 0 14px;padding:10px 14px;border-radius:10px;background:var(--gold-soft);font-size:14.5px}
+.methods{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:760px){.methods{grid-template-columns:1fr 1fr}}
+.method{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface-2);cursor:pointer;transition:transform .15s,border-color .2s,background .2s}
+.method:hover:not(:disabled){border-color:var(--heap);transform:translateY(-2px)}
+.method b{font:700 14.5px var(--font-display)}
+.method small{color:var(--muted);font-size:13px;line-height:1.35}
+.method:disabled{cursor:default}
+.method.correct{border-color:var(--index);background:var(--index-soft)}
+.method.okay{border-color:var(--gold-line);background:var(--gold-soft)}
+.method.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.outcome:not(:empty){margin-top:20px;padding-top:20px;border-top:1px dashed var(--line);animation:drop .4s both}
+.verdict{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.verdict h3{font-size:19px}
+.verdict.good h3{color:var(--index)}.verdict.mid h3{color:var(--gold)}.verdict.bad h3{color:var(--bad)}
+.costs{display:grid;gap:9px;margin:16px 0 8px}
+.cap{font-size:13px;color:var(--muted);margin:4px 0 0}
+.outcome p{max-width:72ch}
+.next-row{display:flex;justify-content:flex-end;margin-top:16px}
+
+/* level 3 */
+.ctx{margin:0 0 12px;font-size:15px}
+.builder{display:grid;gap:16px;margin:18px 0}
+.pool{display:flex;flex-wrap:wrap;gap:8px;min-height:50px;padding:10px;border-radius:14px;background:var(--surface-2);border:1.5px dashed var(--line);transition:border-color .2s}
+.pool.over{border-color:var(--heap)}
+.pool:empty::before{content:"Все колонки разложены";color:var(--muted);font-size:13.5px;align-self:center;padding-left:4px}
+.chip{display:inline-flex;align-items:center;padding:8px 14px;border-radius:999px;border:1.5px solid var(--heap);background:var(--heap-soft);font:600 14px var(--font-code);cursor:grab;user-select:none;-webkit-user-select:none;transition:transform .15s;touch-action:manipulation}
+.chip:hover{transform:translateY(-1px)}
+.chip.dragging{opacity:.4}
+.slot-groups{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end}
+.sg-label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.slot-row{display:flex;flex-wrap:wrap;gap:8px}
+.slot{min-width:150px;min-height:48px;border:2px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:4px 6px;color:var(--muted);font-size:13px;transition:border-color .2s,background .2s}
+.slot.over{border-color:var(--index);background:var(--index-soft)}
+.slot.key .chip{border-color:var(--index);background:var(--index-soft)}
+.slot.inc .chip{border-color:var(--gold-line);background:var(--gold-soft)}
+.slot.inc.over{border-color:var(--gold-line);background:var(--gold-soft)}
+.slot .ord{font:700 12px var(--font-display);color:var(--muted);margin-right:8px}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:14.5px;font-weight:600;padding-bottom:10px}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.knob{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:background .2s;flex:none}
+.knob::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch input:checked+.knob{background:var(--index)}
+.switch input:checked+.knob::after{transform:translateX(18px)}
+.switch input:focus-visible+.knob{outline:3px solid var(--heap);outline-offset:2px}
+.locked .chip,.locked .switch{pointer-events:none;opacity:.8}
+.ddl-cap{font-size:13px;font-weight:700;color:var(--muted);margin:0 0 6px}
+.big-stat{font:800 clamp(24px,3.4vw,32px)/1.15 var(--font-display);margin:8px 0}
+
+/* level 4 */
+.timer{height:7px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;margin:0 0 18px}
+.timer .fill{width:100%;background:var(--index);transition:none}
+.timer.low .fill{background:var(--bad)}
+.code-pair{display:grid;grid-template-columns:1fr 1.3fr;gap:12px}
+@media (max-width:700px){.code-pair{grid-template-columns:1fr}}
+.code-cap{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.plan-pre{margin-top:12px}
+.question{font:700 17px var(--font-display);margin:20px 0 12px}
+.options{display:grid;gap:9px}
+.opt{text-align:left;padding:13px 16px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface-2);cursor:pointer;font-weight:600;font-size:15px;transition:border-color .2s,background .2s,opacity .3s,transform .15s}
+.opt:hover:not(:disabled){border-color:var(--heap);transform:translateX(3px)}
+.opt:disabled{cursor:default}
+.opt.correct{border-color:var(--index);background:var(--index-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt.gone{opacity:.3;text-decoration:line-through}
+
+/* final */
+.final{display:grid;gap:22px}
+.final-top{display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:center}
+.final-score{font:800 clamp(64px,11vw,120px)/.9 var(--font-display);color:var(--gold);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.rank{font:700 clamp(22px,3vw,30px) var(--font-display)}
+.record{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:99px;background:var(--gold-soft);font-weight:700;font-size:13.5px}
+.lvl-bars{display:grid;gap:10px}
+@media (max-width:640px){.final-top{grid-template-columns:1fr;gap:10px}}
+
+/* done panel */
+.done-panel{text-align:center;padding:40px 24px;animation:drop .45s both}
+.done-title{font:700 22px var(--font-display);margin:0}
+.done-score{font:800 48px var(--font-display);color:var(--gold);margin:10px 0 22px}
+.done-score span{display:block;font:600 14px var(--font-body);color:var(--muted)}
+
+/* tooltip, floaters */
+#tip{position:fixed;z-index:70;max-width:300px;padding:12px 14px;border-radius:12px;background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);font-size:13.5px;line-height:1.45;box-shadow:0 18px 40px -16px rgba(0,0,0,.5);opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;pointer-events:none}
+#tip.on{opacity:1;transform:none}
+#tip b{display:block;font:700 13px var(--font-display);margin-bottom:4px;color:var(--code-num)}
+.floater{position:fixed;z-index:60;transform:translate(-50%,0);font:800 19px var(--font-display);pointer-events:none;white-space:nowrap;animation:rise 1.2s cubic-bezier(.2,.7,.2,1) forwards;text-shadow:0 2px 12px var(--bg)}
+@keyframes rise{from{opacity:0;transform:translate(-50%,6px)}15%{opacity:1}to{opacity:0;transform:translate(-50%,-60px)}}
+.bit{position:fixed;z-index:59;width:10px;height:13px;border-radius:2px;pointer-events:none;animation:fly 1s cubic-bezier(.15,.7,.3,1) forwards}
+@keyframes fly{from{transform:translate(-50%,-50%)}to{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(var(--r))}}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<header class="hud">
+  <button class="brand" id="home" aria-label="Индексатор, на главный экран">
+    <svg viewBox="0 0 26 26" aria-hidden="true"><rect x="8" y="2" width="10" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="1.5" y="17" width="8" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="16.5" y="17" width="8" height="6" rx="1.5" fill="var(--index)" stroke="var(--index)" stroke-width="1.8"/><path d="M13 8v4M5.5 17v-5h15v5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+    <b>Индексатор</b>
+  </button>
+  <ol class="steps" aria-label="Уровни">
+    <li data-n="1"><span>Спуск по дереву</span></li>
+    <li data-n="2"><span>Планировщик</span></li>
+    <li data-n="3"><span>Составной индекс</span></li>
+    <li data-n="4"><span>Ловушки</span></li>
+  </ol>
+  <div class="score" aria-live="polite"><span>Очки</span><b id="score">0</b></div>
+</header>
+
+<main id="stage"></main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const h=html=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;};
+const rand=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const fmt=n=>Math.round(n).toLocaleString('ru-RU');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const T=(key,text)=>`<span class="term" tabindex="0" data-term="${key}">${text}</span>`;
+const KW=/\b(EXPLAIN|BUFFERS|SELECT|FROM|WHERE|AND|OR|ORDER BY|LIMIT|CREATE|UNIQUE|INDEX|ON|INCLUDE|USING|DESC|ASC|BETWEEN|LIKE|EXTENSION|ANALYZE|interval|now|lower|gin)\b/g;
+function hl(sql){
+  return sql.split('\n').map(line=>{const i=line.indexOf('--');return i<0?hlCode(line):hlCode(line.slice(0,i))+`<span class="cm">${esc(line.slice(i))}</span>`;}).join('\n');
+}
+function hlCode(sql){
+  return sql.split(/('(?:[^']|'')*')/g).map((p,i)=>i%2
+    ? `<span class="str">${esc(p)}</span>`
+    : esc(p).replace(/\b(\d[\d]*(?:\.\d+)?)\b/g,'<span class="num">$1</span>').replace(KW,'<span class="kw">$1</span>')
+  ).join('');
+}
+function bump(el){el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');}
+function animateBars(root){requestAnimationFrame(()=>requestAnimationFrame(()=>root.classList.add('go')));}
+
+/* ---------- glossary & tooltip ---------- */
+const GLOSS={
+  page:['Страница','Блок 8 КБ, минимальная единица чтения. База читает с диска не отдельные строки, а страницы целиком.'],
+  ctid:['ctid','Физический адрес строки: номер страницы и позиция на ней. Именно его хранит индекс рядом со значением.'],
+  seqscan:['Seq Scan','Чтение всей таблицы подряд, страница за страницей. Одна страница дешёвая, но читаются все.'],
+  btree:['B-tree','Сбалансированное дерево. Корень и внутренние узлы подсказывают, куда спускаться, а листья хранят значения и ctid по порядку.'],
+  selectivity:['Селективность','Доля строк, которую возвращает условие. Чем она меньше, тем больше пользы от индекса.'],
+  correlation:['Корреляция','Насколько физический порядок строк совпадает с порядком значений. Высокая корреляция: нужные строки лежат на соседних страницах.'],
+  randomio:['Случайное чтение','PostgreSQL по умолчанию считает случайное чтение страницы в 4 раза дороже последовательного (random_page_cost = 4).'],
+  planner:['Планировщик','Часть СУБД, которая по статистике оценивает стоимость разных планов и выбирает самый дешёвый.'],
+  vismap:['Visibility map','Карта страниц, где все строки видны всем транзакциям. Её обновляет VACUUM. Без неё Index Only Scan всё равно ходит в таблицу.'],
+  include:['INCLUDE','Колонки, которые лежат в листьях индекса «за компанию». По ним не ищут, зато их не нужно доставать из таблицы.'],
+  partial:['Частичный индекс','Индекс только по строкам, подходящим под WHERE. Маленький, быстрый и почти не мешает вставкам.'],
+  leftprefix:['Правило левого префикса','Индекс (a, b, c) помогает при условиях на a, на a и b, на a, b и c. Условие только на b или только на c его не использует.'],
+  sargable:['Sargable-условие','Колонка стоит «голой»: без функций, приведения типов и арифметики. Только такие условия ищутся по обычному индексу.'],
+  stats:['Статистика','Сведения о распределении данных, которые собирает ANALYZE. По ним планировщик оценивает, сколько строк вернёт условие.'],
+};
+const tip=$('#tip');let tipFor=null;
+function showTip(t){
+  const g=GLOSS[t.dataset.term];if(!g)return;
+  tip.innerHTML=`<b>${g[0]}</b>${g[1]}`;tip.classList.add('on');tipFor=t;
+  const r=t.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;
+  let x=Math.max(8,Math.min(innerWidth-tw-8,r.left+r.width/2-tw/2));
+  let y=r.top-th-10;if(y<70)y=r.bottom+10;
+  tip.style.left=x+'px';tip.style.top=y+'px';
+}
+function hideTip(){tip.classList.remove('on');tipFor=null;}
+document.addEventListener('mouseover',e=>{const t=e.target.closest('.term');if(t)showTip(t);});
+document.addEventListener('mouseout',e=>{const t=e.target.closest('.term');if(t&&!t.contains(e.relatedTarget))hideTip();});
+document.addEventListener('focusin',e=>{const t=e.target.closest('.term');if(t)showTip(t);});
+document.addEventListener('focusout',e=>{if(e.target.closest('.term'))hideTip();});
+document.addEventListener('click',e=>{const t=e.target.closest('.term');if(t){tipFor===t?hideTip():showTip(t);}else if(tipFor)hideTip();});
+addEventListener('scroll',()=>{if(tipFor)hideTip();},{passive:true});
+
+/* ---------- score & effects ---------- */
+const state={score:0,level:0,levelScores:[0,0,0,0]};
+const scoreEl=$('#score');let shown=0,scoreRaf=0;
+function addScore(n,from){
+  state.score+=n;state.levelScores[state.level]+=n;
+  const start=shown,end=state.score,t0=performance.now(),d=reduceMotion?1:650;
+  cancelAnimationFrame(scoreRaf);
+  const step=t=>{const k=Math.min(1,(t-t0)/d);shown=Math.round(start+(end-start)*(1-Math.pow(1-k,3)));scoreEl.textContent=fmt(shown);
+    if(k<1)scoreRaf=requestAnimationFrame(step);else{scoreEl.classList.remove('bump');void scoreEl.offsetWidth;scoreEl.classList.add('bump');}};
+  scoreRaf=requestAnimationFrame(step);
+  if(from&&n)floater((n>0?'+':'−')+Math.abs(n),from,n>0?'var(--gold)':'var(--bad)');
+}
+function floater(text,el,color){
+  const r=el.getBoundingClientRect(),f=document.createElement('div');
+  f.className='floater';f.textContent=text;f.style.color=color;
+  f.style.left=(r.left+r.width/2)+'px';f.style.top=(r.top-6)+'px';
+  document.body.appendChild(f);setTimeout(()=>f.remove(),1300);
+}
+function burst(el){
+  if(reduceMotion||!el)return;
+  const r=el.getBoundingClientRect();
+  for(let i=0;i<18;i++){
+    const b=document.createElement('div'),a=Math.random()*Math.PI*2,d=70+Math.random()*130;
+    b.className='bit';b.style.left=(r.left+r.width/2)+'px';b.style.top=(r.top+r.height/2)+'px';
+    b.style.setProperty('--dx',Math.cos(a)*d+'px');b.style.setProperty('--dy',(Math.sin(a)*d-50)+'px');
+    b.style.setProperty('--r',(Math.random()*300-150)+'deg');
+    b.style.background=i%3?'var(--index)':'var(--gold-line)';
+    document.body.appendChild(b);setTimeout(()=>b.remove(),1100);
+  }
+}
+function setStep(i){$$('.steps li').forEach((li,k)=>{li.classList.toggle('active',k===i);li.classList.toggle('done',k<i);});}
+const stage=$('#stage');
+function show(node){hideTip();stage.replaceChildren(node);scrollTo({top:0,behavior:reduceMotion?'auto':'smooth'});}
+function head(n,title,lead){return `<header class="lvl-head"><div class="lvl-num" aria-hidden="true">${n}</div><div><h2>${title}</h2><p class="lead">${lead}</p></div></header>`;}
+function levelEnd(container,n,label,next){
+  const pts=state.levelScores[state.level];
+  const p=h(`<div class="panel done-panel"><p class="done-title">Уровень ${n} пройден</p><p class="done-score">${pts>=0?'+':'−'}${fmt(Math.abs(pts))}<span>очков за уровень</span></p><button class="btn primary">${label}</button></div>`);
+  container.replaceChildren(p);p.querySelector('button').onclick=next;
+  p.scrollIntoView({block:'center',behavior:reduceMotion?'auto':'smooth'});
+  setTimeout(()=>burst(p.querySelector('.done-score')),250);
+}
+
+/* ---------- intro ---------- */
+function intro(){
+  setStep(-1);
+  const leaves=[...Array(9)].map((_,i)=>`<rect x="${12+52*i}" y="190" width="44" height="46" rx="4"${i===1?' class="hl s5"':''}/>`).join('');
+  show(h(`<section class="hero">
+    <div>
+      <h1 class="title">Индексатор<span class="dot">.</span></h1>
+      <p class="lead">Игра о том, как база данных находит строки: сначала вслепую, потом по индексу. Главная валюта здесь та же, что у настоящей СУБД: прочитанные ${T('page','страницы')}. Чем меньше читаешь, тем больше очков.</p>
+      <ol class="plan">
+        <li><span><b>Спуск по дереву.</b> Найди заказы без индекса, а потом через B-tree.</span></li>
+        <li><span><b>Планировщик.</b> Выбери способ чтения так, как выбрал бы PostgreSQL.</span></li>
+        <li><span><b>Составной индекс.</b> Собери индекс из колонок в правильном порядке.</span></li>
+        <li><span><b>Ловушки.</b> Разберись на время, почему индекс не работает.</span></li>
+      </ol>
+      <button class="btn primary" id="start">Начать игру</button>
+      <p class="muted" style="font-size:14px;margin-top:14px">Слова с пунктирным подчёркиванием можно навести или нажать: появится объяснение.</p>
+    </div>
+    <div class="panel hero-card">
+      <svg class="hero-tree" viewBox="0 0 480 250" role="img" aria-label="Схема B-tree: путь от корня через внутренний узел к листу с ключом 42">
+        <path d="M240 58 L90 100" class="hl s2"/><path d="M240 58 L240 100"/><path d="M240 58 L390 100"/>
+        <path d="M90 132 L34 190"/><path d="M90 132 L86 190" class="hl s4"/><path d="M90 132 L138 190"/>
+        <path d="M240 132 L190 190"/><path d="M240 132 L242 190"/><path d="M240 132 L294 190"/>
+        <path d="M390 132 L346 190"/><path d="M390 132 L398 190"/><path d="M390 132 L450 190"/>
+        <path class="links" d="M56 213 H64 M108 213 H116 M160 213 H168 M212 213 H220 M264 213 H272 M316 213 H324 M368 213 H376 M420 213 H428"/>
+        <rect x="165" y="24" width="150" height="34" rx="6" class="hl s1"/><text x="240" y="46">33 000 | 66 000</text>
+        <rect x="30" y="100" width="120" height="32" rx="6" class="hl s3"/><text x="90" y="121">110 | 220</text>
+        <rect x="180" y="100" width="120" height="32" rx="6"/><text x="240" y="121">…</text>
+        <rect x="330" y="100" width="120" height="32" rx="6"/><text x="390" y="121">…</text>
+        ${leaves}
+        <text x="86" y="219" class="k">42</text>
+      </svg>
+      <p class="hero-caption">Поиск клиента 42 в дереве на миллионы строк: корень, внутренний узел, лист. Три чтения вместо тысяч.</p>
+    </div>
+  </section>`));
+  $('#start').onclick=()=>{resetGame();level1();};
+}
+function resetGame(){state.score=0;state.levelScores=[0,0,0,0];addScore(0);}
+$('#home').onclick=intro;
+
+/* ---------- level 1 ---------- */
+function pageEl(i,rows){
+  return h(`<button class="page" data-p="${i}" aria-label="Страница ${i}">
+    <span class="inner">
+      <span class="face front"><span class="pno">стр. ${i}</span><span class="lines"></span></span>
+      <span class="face back"><span class="pno">стр. ${i}</span>${rows.map((c,s)=>`<span class="row${c===42?' hit':''}"><i>(${i},${s+1})</i><b>${c}</b></span>`).join('')}</span>
+    </span></button>`);
+}
+function level1(){
+  state.level=0;setStep(0);
+  const P=48,R=6;
+  const pages=Array.from({length:P},()=>Array.from({length:R},()=>rand(100,99999)));
+  const order=shuffle([...Array(P).keys()]);
+  const targets=order.slice(0,3).map(p=>({k:42,p,s:rand(0,R-1)})).sort((a,b)=>a.p-b.p);
+  const others=[40,41,43,44].map((k,i)=>({k,p:order[3+i],s:rand(0,R-1)}));
+  [...targets,...others].forEach(e=>pages[e.p][e.s]=e.k);
+  const leafEntries=[others[0],others[1],...targets,others[2],others[3]];
+
+  const root=h(`<section class="level">
+    ${head(1,'Найди все заказы клиента 42',`Перед тобой таблица <b>orders</b>: 48 ${T('page','страниц')}, на каждой 6 строк. В строке указан номер клиента, слева от него ${T('ctid','адрес строки')}. Индекса пока нет. Открывай страницы и найди все заказы клиента 42. Сколько их, заранее неизвестно.`)}
+    <div class="bar-top">
+      <div class="meters">
+        <div class="meter"><span>Прочитано страниц</span><b id="m-read">0</b><small id="m-of">из 48</small></div>
+        <div class="meter gold"><span>Найдено заказов</span><b id="m-found">0</b></div>
+      </div>
+      <div class="actions"><button class="btn ghost" id="a-all">Прочитать всё подряд</button><button class="btn primary" id="a-done">Готово, это все</button></div>
+    </div>
+    <div class="split" id="split"><div class="tree-col" id="treecol" hidden></div><div class="grid" id="grid"></div></div>
+    <div id="res"></div>
+  </section>`);
+  show(root);
+  const grid=$('#grid',root),res=$('#res',root),treecol=$('#treecol',root);
+  const mRead=$('#m-read',root),mFound=$('#m-found',root);
+  const els=pages.map((rows,i)=>{const e=pageEl(i,rows);grid.appendChild(e);return e;});
+  let phase='A',read=0,readB=1,foundB=0;const opened=new Set();
+  const foundA=()=>targets.filter(t=>opened.has(t.p)).length;
+  const updA=()=>{mRead.textContent=read;mFound.textContent=foundA();bump(mRead);};
+  const updB=()=>{mRead.textContent=readB;mFound.textContent=foundB;bump(mRead);};
+
+  grid.addEventListener('click',e=>{
+    const b=e.target.closest('.page');if(!b||phase!=='A')return;
+    const i=+b.dataset.p;if(opened.has(i))return;
+    opened.add(i);read++;b.classList.add('open');updA();
+    if(pages[i].includes(42))setTimeout(()=>floater('клиент 42!',b,'var(--gold)'),250);
+  });
+  const lockA=()=>{phase='A-lock';$('#a-all',root).disabled=true;$('#a-done',root).disabled=true;};
+  $('#a-all',root).onclick=async()=>{
+    lockA();
+    for(let i=0;i<P;i++){if(!opened.has(i)){opened.add(i);read++;els[i].classList.add('open');updA();await sleep(reduceMotion?0:26);}}
+    finishA();
+  };
+  $('#a-done',root).onclick=()=>{lockA();finishA();};
+
+  function finishA(){
+    phase='A-done';
+    const f=foundA(),all=opened.size===P;
+    const missed=targets.filter(t=>!opened.has(t.p)).map(t=>t.p);
+    let pts,title,msg;
+    if(f===3&&all){pts=100;title='Все три найдены';msg=`Ты прочитал все 48 страниц. Именно так работает ${T('seqscan','Seq Scan')}: без индекса база не знает, где лежат нужные строки и когда можно остановиться, поэтому читает таблицу целиком.`;}
+    else if(f===3){pts=60;title='Все три найдены, но повезло';msg=`Ты прочитал ${opened.size} из 48 страниц. Базе так везти не может: пока не прочитана последняя страница, нельзя быть уверенным, что заказов больше нет. Настоящий ${T('seqscan','Seq Scan')} прочитал бы все 48.`;}
+    else{pts=0;title=`Найдено ${f} из 3`;msg=`Пропущенные заказы лежали на ${missed.length>1?'страницах':'странице'} ${missed.join(', ')}. Без индекса единственный способ ничего не пропустить — прочитать таблицу целиком. Так и делает ${T('seqscan','Seq Scan')}.`;}
+    els.forEach((e,i)=>{if(!opened.has(i))e.classList.add('open','revealed');});
+    targets.forEach(t=>els[t.p].classList.add('target'));
+    res.innerHTML=`<div class="panel result"><h3>${title}</h3><div class="pts${pts?'':' zero'}">+${pts}</div><p>${msg}</p><p>Золотой рамкой отмечены страницы с заказами клиента 42. Теперь попробуем то же самое через индекс.</p><div class="next-row"><button class="btn primary" id="toB">Искать через индекс</button></div></div>`;
+    addScore(pts,$('#a-done',root));
+    $('#toB',res).onclick=phaseB;
+    res.scrollIntoView({block:'nearest',behavior:reduceMotion?'auto':'smooth'});
+  }
+
+  const LV=[
+    {tab:'Корень',pno:3,keys:['33 000','66 000'],ask:'Где искать ключ 42?',br:[['< 33 000',1],['33 000 – 65 999',0,'Прочитан лишний узел: в нём ключи от 33 000 до 65 999, ключа 42 там быть не может.'],['≥ 66 000',0,'Прочитан лишний узел: в нём ключи от 66 000 и выше.']]},
+    {tab:'Внутренний узел',pno:17,keys:['110','220','330'],ask:'А теперь?',br:[['< 110',1],['110 – 219',0,'Лишнее чтение: здесь ключи от 110 до 219.'],['220 – 329',0,'Лишнее чтение: здесь ключи от 220 до 329.'],['≥ 330',0,'Лишнее чтение: здесь ключи от 330 и выше.']]},
+  ];
+  function phaseB(){
+    phase='B';res.innerHTML='';
+    els.forEach(e=>e.classList.remove('open','revealed','target'));
+    grid.classList.add('locked');
+    $('.lvl-head h2',root).textContent='Теперь найди их через индекс';
+    $('.lvl-head .lead',root).innerHTML=`На колонку customer_id построен ${T('btree','B-tree')}. Спускайся от корня: в каждом узле выбери ветку, где может лежать ключ 42. Каждый прочитанный узел и каждая страница таблицы стоят одно чтение. Цель: 6 чтений.`;
+    $('.actions',root).hidden=true;$('#m-of',root).textContent='цель 6';
+    treecol.hidden=false;$('#split',root).classList.add('on');
+    updB();renderNode(0);
+    root.scrollIntoView({behavior:reduceMotion?'auto':'smooth'});
+  }
+  function renderNode(i){
+    const d=LV[i];
+    if(i>0)treecol.appendChild(h('<div class="connector"></div>'));
+    const n=h(`<div class="node"><div class="tab">${d.tab}<span>стр. ${d.pno}</span></div>
+      <div class="keys">${d.keys.map(k=>`<span>${k}</span>`).join('')}</div>
+      <p class="ask">${d.ask}</p>
+      <div class="branches">${d.br.map((b,j)=>`<button class="branch" data-j="${j}">${b[0]}</button>`).join('')}</div>
+      <p class="note" aria-live="polite"></p></div>`);
+    treecol.appendChild(n);
+    n.querySelector('.branches').addEventListener('click',e=>{
+      const b=e.target.closest('.branch');if(!b||b.disabled)return;
+      const br=d.br[+b.dataset.j];readB++;updB();
+      if(br[1]){$$('.branch',n).forEach(x=>x.disabled=true);b.classList.add('chosen');n.querySelector('.note').textContent='';i+1<LV.length?renderNode(i+1):renderLeaf();}
+      else{b.disabled=true;b.classList.add('nope','shake');n.querySelector('.note').textContent=br[2];floater('+1 чтение',b,'var(--bad)');}
+    });
+  }
+  function renderLeaf(){
+    treecol.appendChild(h('<div class="connector"></div>'));
+    const n=h(`<div class="node"><div class="tab">Лист<span>стр. 58</span></div>
+      <p class="ask" style="margin-top:0">Записи в листе отсортированы по ключу, поэтому все 42 стоят рядом. Нажми на каждую запись с ключом 42: база пойдёт по её ${T('ctid','ctid')} прямо на нужную страницу таблицы.</p>
+      <div class="entries">${leafEntries.map((e,j)=>`<button class="entry" data-j="${j}"><b>${e.k}</b><span>→</span><i>стр. ${e.p}, строка ${e.s+1}</i></button>`).join('')}</div>
+      <p class="note" aria-live="polite"></p></div>`);
+    treecol.appendChild(n);
+    const wide=matchMedia('(min-width:781px)').matches;
+    n.querySelector('.entries').addEventListener('click',e=>{
+      const b=e.target.closest('.entry');if(!b||b.disabled||phase!=='B')return;
+      const en=leafEntries[+b.dataset.j];b.disabled=true;readB++;
+      const pg=els[en.p];pg.classList.add('open');
+      if(wide)pg.scrollIntoView({block:'nearest',behavior:reduceMotion?'auto':'smooth'});
+      if(en.k===42){b.classList.add('chosen');foundB++;pg.classList.add('target');n.querySelector('.note').textContent='';setTimeout(()=>floater('стр. '+en.p,pg,'var(--gold)'),200);}
+      else{b.classList.add('nope','shake');pg.classList.add('wrong');n.querySelector('.note').textContent=`Ключ ${en.k} — другой клиент. Страница ${en.p} прочитана зря.`;}
+      updB();
+      if(foundB===3)finishB();
+    });
+  }
+  function finishB(){
+    phase='B-done';$$('.entry',treecol).forEach(x=>x.disabled=true);
+    const pts=Math.max(50,300-30*(readB-6));
+    res.innerHTML=`<div class="panel result"><h3>${readB===6?'Идеальный спуск':'Все три найдены'}</h3><div class="pts">+${pts}</div>
+      <div class="compare">
+        <div class="cost-row"><span>Без индекса</span><div class="track"><div class="fill" style="--w:100%"></div></div><b>48 стр.</b></div>
+        <div class="cost-row best"><span>С индексом</span><div class="track"><div class="fill index" style="--w:${Math.max(3,readB/48*100)}%"></div></div><b>${readB} стр.</b></div>
+      </div>
+      <p>Три чтения ушло на спуск по дереву (корень, внутренний узел, лист) и три — на страницы таблицы с нужными строками${readB>6?`. Ещё ${readB-6} потрачено на лишние ветки и записи. Настоящая база с веткой не ошибается: она сравнивает 42 с ключами в узле и сразу знает, куда идти`:''}.</p>
+      <p>Главное: у дерева всего несколько уровней даже на миллиардах строк. На твоей таблице в DataGrip на 5 млн строк это около 50 страниц вместо 62 000.</p>
+      <div class="next-row"><button class="btn primary" id="next">Дальше: планировщик</button></div></div>`;
+    animateBars(res.firstElementChild);
+    addScore(pts,treecol.lastElementChild);
+    setTimeout(()=>burst($('.pts',res)),300);
+    $('#next',res).onclick=level2;
+    setTimeout(()=>res.scrollIntoView({block:'nearest',behavior:reduceMotion?'auto':'smooth'}),350);
+  }
+}
+
+/* ---------- level 2 ---------- */
+const METHODS={
+  seq:{name:'Seq Scan',desc:'Прочитать таблицу целиком'},
+  index:{name:'Index Scan',desc:'Спуск по индексу, строка за строкой'},
+  bitmap:{name:'Bitmap Scan',desc:'Собрать адреса, читать страницы по порядку'},
+  only:{name:'Index Only Scan',desc:'Взять всё из индекса, без таблицы'},
+};
+const NO_ALL='SELECT * — в индексе нет всех колонок';
+const ROUNDS=[
+  {sql:"SELECT *\nFROM orders\nWHERE status = 'shipped';",
+   facts:[['Таблица','5 000 000 строк, ≈60 000 страниц'],['Под условие','≈4 740 000 строк (95%)'],['Индекс','idx_orders_status (status)']],
+   best:'seq',ok:[],cost:{seq:60000,index:19000000,bitmap:82000,only:null},na:{only:NO_ALL},
+   hint:'Какую долю таблицы нужно прочитать? Если почти всю, индекс только добавит работы.',
+   explain:`Под условие подходит почти вся таблица. Index Scan сделал бы около 4,7 млн ${T('randomio','случайных чтений')}, а Bitmap прочитал бы те же 60 000 страниц плюс сам индекс. Дешевле всего прочитать таблицу подряд.`},
+  {sql:"SELECT *\nFROM orders\nWHERE customer_id = 42;",
+   facts:[['Под условие','≈50 строк'],['Расположение','50 разных страниц'],['Индекс','idx_orders_customer_id (customer_id)']],
+   best:'bitmap',ok:['index'],cost:{seq:60000,index:206,bitmap:190,only:null},na:{only:NO_ALL},
+   hint:'Строк мало, но они на разных страницах. Какой способ читает каждую страницу ровно один раз?',
+   explain:`Оба индексных способа здесь дешёвые. На таком запросе PostgreSQL выбирает Bitmap Scan: собирает адреса, сортирует по страницам и читает каждую страницу один раз. Index Scan тоже хороший ответ. А Seq Scan — это 60 000 страниц ради 50 строк.`},
+  {sql:"SELECT *\nFROM orders\nWHERE status = 'new';",
+   facts:[['Под условие','10 000 строк (0,2%)'],['Расположение',`рядом, в конце таблицы (${T('correlation','корреляция')} 0,9)`],['Индекс','idx_orders_status (status)']],
+   best:'index',ok:['bitmap'],cost:{seq:60000,index:150,bitmap:165,only:null},na:{only:NO_ALL},
+   hint:'Нужные строки лежат рядом друг с другом.',
+   explain:`Новые заказы добавлены последними и лежат на соседних страницах, их около 120. Index Scan идёт по индексу и читает эти страницы почти последовательно. Bitmap тоже справится, но собирать битовую карту тут незачем.`},
+  {sql:"SELECT *\nFROM orders\nWHERE status = 'cancelled';",
+   facts:[['Под условие','≈250 000 строк (5%)'],['Расположение','каждая 20-я строка, есть почти на каждой странице'],['Индекс','idx_orders_status (status)']],
+   best:'seq',ok:['bitmap'],cost:{seq:60000,index:1000000,bitmap:60700,only:null},na:{only:NO_ALL},
+   hint:'Посчитай, на скольких страницах лежат отменённые заказы.',
+   explain:`Строк всего 5%, но они есть на каждой странице таблицы. Какой способ ни выбери, прочитать придётся все 60 000 страниц, а индекс только добавит работы. ${T('selectivity','Селективность')} — это не только доля строк, но и то, на скольких страницах они лежат.`},
+  {sql:"SELECT created_at, amount\nFROM orders\nWHERE customer_id = 42;",
+   facts:[['Под условие','≈50 строк'],['Индекс','(customer_id, created_at) INCLUDE (amount)'],['Обслуживание',`VACUUM прошёл недавно, ${T('vismap','visibility map')} актуальна`]],
+   best:'only',ok:['bitmap','index'],cost:{seq:60000,index:54,bitmap:55,only:4},na:{},
+   hint:'Все ли колонки запроса есть в индексе?',
+   explain:`Все колонки запроса лежат в индексе: customer_id и created_at в ключе, amount в ${T('include','INCLUDE')}. После VACUUM база знает, что страницы «чистые», и в таблицу не ходит совсем. Хватает 3–4 страниц индекса.`},
+  {sql:"SELECT *\nFROM orders\nWHERE id = 1234567;",
+   facts:[['Под условие','1 строка'],['Индекс','orders_pkey (id), первичный ключ']],
+   best:'index',ok:['bitmap'],cost:{seq:60000,index:8,bitmap:9,only:null},na:{only:NO_ALL},
+   hint:'Сколько строк вернёт запрос?',
+   explain:`Одна строка по первичному ключу — классический Index Scan: спуск по дереву и одно чтение таблицы. Bitmap для одной строки — лишняя подготовка.`},
+  {sql:"SELECT *\nFROM orders\nWHERE customer_id = 42\n   OR email = 'User77@Mail.ru';",
+   facts:[['Под условие','≈51 строка'],['Индексы','idx_orders_customer_id (customer_id), idx_orders_email (email)']],
+   best:'bitmap',ok:[],cost:{seq:60000,index:null,bitmap:70,only:null},na:{index:'Один Index Scan идёт только по одному индексу, а тут OR по двум колонкам',only:NO_ALL},
+   hint:'Условие OR по двум разным колонкам, и на каждой есть индекс.',
+   explain:`Bitmap Scan строит битовую карту по каждому индексу, объединяет их (BitmapOr) и читает нужные страницы один раз. Если бы индекса на email не было, остался бы только Seq Scan.`},
+];
+function level2(){
+  state.level=1;setStep(1);
+  let r=0;
+  const root=h(`<section class="level">${head(2,'Будь планировщиком',`Для каждого запроса выбери способ чтения, который выбрал бы ${T('planner','планировщик')} PostgreSQL. Смотри на ${T('selectivity','селективность')} условия, на то, как строки разложены по страницам, и на то, какие колонки есть в индексе. Точный ответ даёт 150 очков, рабочий — 75.`)}<div id="round"></div></section>`);
+  show(root);
+  const box=$('#round',root);
+  function render(){
+    const d=ROUNDS[r];let hinted=false,done=false;
+    const c=h(`<div class="panel">
+      <div class="round-top"><span class="counter">Запрос ${r+1} из ${ROUNDS.length}</span><button class="btn small ghost hint">Подсказка −30</button></div>
+      <pre class="sql">${hl(d.sql)}</pre>
+      <dl class="facts">${d.facts.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+      <p class="hint-text" hidden>${d.hint}</p>
+      <div class="methods">${Object.entries(METHODS).map(([k,m])=>`<button class="method" data-m="${k}"><b>${m.name}</b><small>${m.desc}</small></button>`).join('')}</div>
+      <div class="outcome"></div></div>`);
+    box.replaceChildren(c);
+    const hb=$('.hint',c);
+    hb.onclick=()=>{if(hinted||done)return;hinted=true;hb.disabled=true;$('.hint-text',c).hidden=false;addScore(-30,hb);};
+    $('.methods',c).addEventListener('click',e=>{
+      const b=e.target.closest('.method');if(!b||done)return;done=true;hb.disabled=true;
+      const m=b.dataset.m,grade=m===d.best?'best':d.ok.includes(m)?'ok':'bad',pts={best:150,ok:75,bad:0}[grade];
+      $$('.method',c).forEach(x=>{x.disabled=true;const k=x.dataset.m;if(k===d.best)x.classList.add('correct');else if(k===m)x.classList.add(grade==='ok'?'okay':'wrong');});
+      if(pts)addScore(pts,b);
+      const vals=Object.values(d.cost).filter(v=>v!=null),max=Math.max(...vals);
+      const w=v=>Math.max(3,Math.log10(v+1)/Math.log10(max+1)*100);
+      const bars=Object.entries(METHODS).map(([k,mm])=>{const v=d.cost[k];
+        return `<div class="cost-row${k===d.best?' best':''}${k===m?' mine':''}"><span>${mm.name}</span>${v==null?'<div class="track na"></div>':`<div class="track"><div class="fill" style="--w:${w(v)}%"></div></div>`}<b>${v==null?'нельзя':fmt(v)}</b></div>`;}).join('');
+      const nas=Object.entries(d.na).map(([k,t])=>`${METHODS[k].name}: ${t}.`).join(' ');
+      const verdict={best:['good',`Точно. Планировщик выбрал бы ${METHODS[d.best].name}`],ok:['mid',`Рабочий вариант. Планировщик выбрал бы ${METHODS[d.best].name}`],bad:['bad',`Дорого. Правильно: ${METHODS[d.best].name}`]}[grade];
+      const out=$('.outcome',c);
+      out.innerHTML=`<div class="verdict ${verdict[0]}"><h3>${verdict[1]}</h3><span class="pts${pts?'':' zero'}">+${pts}</span></div>
+        <div class="costs">${bars}</div>
+        <p class="cap">Условная стоимость: последовательное чтение страницы = 1, ${T('randomio','случайное')} = 4. Шкала логарифмическая.${nas?' '+nas:''}</p>
+        <p>${d.explain}</p>
+        <div class="next-row"><button class="btn primary">${r+1<ROUNDS.length?'Следующий запрос':'Завершить уровень'}</button></div>`;
+      animateBars($('.costs',out));
+      $('.next-row button',out).onclick=()=>{r++;r<ROUNDS.length?render():levelEnd(box,2,'Дальше: составной индекс',level3);};
+      setTimeout(()=>out.scrollIntoView({block:'nearest',behavior:reduceMotion?'auto':'smooth'}),60);
+    });
+  }
+  render();
+}
+
+/* ---------- level 3 ---------- */
+const O=(grade,stat,text)=>({grade,stat,text});
+const PUZZLES=[
+  {ctx:'Экран «История заказов клиента»: 20 последних заказов за период. У крупного клиента 200 000 заказов.',
+   sql:"SELECT id, amount\nFROM orders\nWHERE customer_id = 42\n  AND created_at >= '2026-01-01'\nORDER BY created_at DESC\nLIMIT 20;",
+   table:'orders',chips:['created_at','status','customer_id','amount'],keys:2,inc:0,
+   bestDDL:'CREATE INDEX ON orders (customer_id, created_at);',
+   eval(k){const[a,b]=k;
+     if(a==='customer_id'&&b==='created_at')return O('best','20 записей индекса','Сначала равенство, потом сортировка. База прыгает в конец блока клиента 42, идёт назад по дате и останавливается на 20-й записи. Сортировать ничего не нужно.');
+     if(a==='customer_id')return O('weak','200 000 строк + сортировка','Клиент находится быстро, но его заказы в индексе идут не по дате. Чтобы отдать 20 последних, базе придётся достать все 200 000 и отсортировать их.');
+     if(a==='created_at')return O('bad','≈1 900 000 записей','Первым стоит диапазон дат, а под ним перемешаны заказы всех клиентов. Базе придётся пройти всё с 1 января и отфильтровать клиента 42 на ходу.');
+     return O('bad','весь индекс',`Колонки ${a} нет в условии запроса. По правилу левого префикса поиск начинается с первой колонки, так что индекс бесполезен.`);}},
+  {ctx:'Склад ищет упакованные отгрузки за неделю. В таблице shipments 30 млн строк и 50 складов.',
+   sql:"SELECT *\nFROM shipments\nWHERE warehouse_id = 7\n  AND status = 'packed'\n  AND shipped_at BETWEEN '2026-09-01' AND '2026-09-07';",
+   table:'shipments',chips:['shipped_at','carrier','status','warehouse_id'],keys:3,inc:0,
+   bestDDL:'CREATE INDEX ON shipments (warehouse_id, status, shipped_at);',
+   eval(k){const ks=k.filter(Boolean),eq=['warehouse_id','status'];
+     if(!eq.includes(ks[0]))return ks[0]==='shipped_at'
+       ?O('bad','≈300 000 записей','Диапазон дат стоит первым: база пройдёт все отгрузки за неделю по всем складам и статусам и отбросит лишние.')
+       :O('bad','весь индекс','Колонки carrier нет в условии, а поиск по индексу начинается с первой колонки.');
+     let n=0;while(n<ks.length&&eq.includes(ks[n]))n++;
+     const dateNext=ks[n]==='shipped_at';
+     if(n===2&&dateNext)return O('best','≈1 200 записей','Две колонки с равенством, затем диапазон. Порядок warehouse_id и status между собой для этого запроса почти не важен: первой ставят ту, по которой чаще ищут отдельно.');
+     if(n===2)return O('good','≈40 000 записей','Равенства отработали, но даты сразу после них нет. Все упакованные отгрузки склада за всё время проверяются фильтром.');
+     if(dateNext)return O('weak','≈6 000 записей','Диапазон дат стоит посередине. После диапазона колонка status для поиска уже не работает, её проверяют фильтром на каждой записи.');
+     return O('weak','≈600 000 записей','По индексу работает только одна колонка из трёх.');}},
+  {ctx:'Фоновый обработчик раз в 10 секунд забирает пачку новых заказов, самые старые первыми. Новых всего 10 000 из 5 млн.',
+   sql:"SELECT id, customer_id\nFROM orders\nWHERE status = 'new'\nORDER BY created_at\nLIMIT 100;",
+   table:'orders',chips:['customer_id','created_at','status'],keys:2,inc:0,partial:"status = 'new'",
+   bestDDL:"CREATE INDEX ON orders (created_at)\n  WHERE status = 'new';",
+   eval(k,inc,part){const ks=k.filter(Boolean);
+     if(part&&ks[0]==='created_at')return O('best','100 записей, индекс ~300 КБ','Частичный индекс содержит только новые заказы, уже упорядоченные по дате. Он крошечный, всегда в памяти и не обновляется при вставке отгруженных заказов.');
+     if(part&&ks[0]==='status'&&ks[1]==='created_at')return O('good','100 записей','Работает, но внутри частичного индекса status всегда равен new. Колонка в ключе лишняя и только занимает место.');
+     if(!part&&ks[0]==='status'&&ks[1]==='created_at')return O('good','100 записей, индекс ~150 МБ','Запрос быстрый, но индекс построен по всем 5 млн строк ради 10 000 нужных. Частичный индекс сделал бы то же самое в сотни раз компактнее.');
+     if(ks[0]==='status')return O('weak','10 000 строк + сортировка','Новые заказы находятся быстро, но не по порядку дат. Базе придётся прочитать все 10 000 и отсортировать.');
+     if(ks[0]==='created_at')return O('bad','≈4 990 000 записей','Индекс по дате без условия: база идёт от самых старых заказов, а новые лежат в самом конце. Пока наберётся 100 штук со статусом new, будет пройден почти весь индекс.');
+     if(part)return O('weak','10 000 строк + сортировка','Частичный индекс маленький, но упорядочен не по дате. Придётся прочитать все новые заказы и отсортировать.');
+     return O('bad','весь индекс','Колонки customer_id нет в условии, поиск по такому индексу невозможен.');}},
+  {ctx:'Мини-график оплат клиента: нужны только дата и сумма, около 50 строк. Запрос вызывается очень часто.',
+   sql:"SELECT created_at, amount\nFROM orders\nWHERE customer_id = 42\nORDER BY created_at DESC;",
+   table:'orders',chips:['amount','status','created_at','customer_id'],keys:2,inc:1,
+   bestDDL:'CREATE INDEX ON orders (customer_id, created_at)\n  INCLUDE (amount);',
+   eval(k,inc){const[a,b]=k,i=inc[0];
+     if(a!=='customer_id')return O('bad','весь индекс','Поиск идёт по customer_id, значит, он должен стоять первым. Иначе индекс не поможет найти клиента.');
+     const cols=new Set([a,b,i].filter(Boolean)),covers=['customer_id','created_at','amount'].every(c=>cols.has(c)),sorted=b==='created_at';
+     if(covers&&sorted)return O('best','0 чтений таблицы','Index Only Scan: ключ находит клиента и уже упорядочен по дате, а amount лежит в листьях через INCLUDE. В таблицу ходить не нужно.');
+     if(sorted)return O('good','50 чтений таблицы','Поиск и сортировка идут по индексу, но за amount приходится ходить в таблицу. Добавь amount в INCLUDE, и будет Index Only Scan.');
+     if(covers)return O('weak','без таблицы, но с сортировкой','Все колонки есть в индексе, но created_at не стоит сразу после customer_id. Результат придётся сортировать.');
+     return O('weak','50 чтений таблицы + сортировка','Клиент находится по индексу, но за остальными колонками база идёт в таблицу и потом сортирует результат.');}},
+];
+function level3(){
+  state.level=2;setStep(2);
+  let p=0;
+  const root=h(`<section class="level">${head(3,'Собери индекс',`Перетаскивай колонки в индекс или просто нажимай на них. Порядок колонок решает всё, помни ${T('leftprefix','правило левого префикса')}. Где доступно, используй ${T('include','INCLUDE')} и ${T('partial','частичный индекс')}.`)}<div id="puz"></div></section>`);
+  show(root);
+  const box=$('#puz',root);
+  function render(){
+    const d=PUZZLES[p];const pl={key:Array(d.keys).fill(null),inc:Array(d.inc).fill(null)};let part=false,done=false;
+    const c=h(`<div class="panel">
+      <div class="round-top"><span class="counter">Задача ${p+1} из ${PUZZLES.length}</span></div>
+      <p class="ctx">${d.ctx}</p>
+      <pre class="sql">${hl(d.sql)}</pre>
+      <div class="builder">
+        <div><span class="sg-label">Колонки таблицы ${d.table}</span><div class="pool" data-zone="pool"></div></div>
+        <div class="slot-groups">
+          <div><span class="sg-label">Ключ индекса, по порядку</span><div class="slot-row">${pl.key.map((_,i)=>`<div class="slot key" data-zone="key" data-i="${i}"></div>`).join('')}</div></div>
+          ${d.inc?`<div><span class="sg-label">INCLUDE</span><div class="slot-row"><div class="slot inc" data-zone="inc" data-i="0"></div></div></div>`:''}
+          ${d.partial?`<label class="switch"><input type="checkbox" id="part"><span class="knob"></span><span>Частичный: <code>WHERE ${esc(d.partial)}</code></span></label>`:''}
+        </div>
+      </div>
+      <p class="ddl-cap">Что получится</p><pre class="sql ddl"></pre>
+      <div class="next-row"><button class="btn primary" id="check" disabled>Проверить индекс</button></div>
+      <div class="outcome"></div></div>`);
+    box.replaceChildren(c);
+    const pool=$('.pool',c),builder=$('.builder',c),ddl=$('.ddl',c),check=$('#check',c);
+    const chip=col=>`<span class="chip" draggable="true" data-col="${col}" tabindex="0" role="button">${col}</span>`;
+    const where=col=>{for(const z of ['key','inc']){const i=pl[z].indexOf(col);if(i>-1)return[z,i];}return null;};
+    function place(col,zone,i){
+      if(done)return;const w=where(col);if(w)pl[w[0]][w[1]]=null;
+      if(zone&&zone!=='pool'){const prev=pl[zone][i];pl[zone][i]=col;if(prev&&w&&prev!==col)pl[w[0]][w[1]]=prev;}
+      draw();
+    }
+    function autoPlace(col){
+      if(where(col)){place(col,'pool');return;}
+      let i=pl.key.indexOf(null);if(i>-1)return place(col,'key',i);
+      i=pl.inc.indexOf(null);if(i>-1)return place(col,'inc',i);
+    }
+    function draw(){
+      pool.innerHTML=d.chips.filter(col=>!where(col)).map(chip).join('');
+      $$('.slot',c).forEach(s=>{const z=s.dataset.zone,i=+s.dataset.i,col=pl[z][i];
+        s.innerHTML=col?(z==='key'?`<span class="ord">${i+1}</span>`:'')+chip(col):(z==='key'?`колонка ${i+1}`:'необязательно');});
+      const keys=pl.key.filter(Boolean),inc=pl.inc.filter(Boolean);
+      ddl.innerHTML=hl(`CREATE INDEX ON ${d.table} (${keys.join(', ')||'…'})${inc.length?`\n  INCLUDE (${inc.join(', ')})`:''}${part?`\n  WHERE ${d.partial}`:''};`);
+      check.disabled=!pl.key[0]||done;
+    }
+    builder.addEventListener('click',e=>{const ch=e.target.closest('.chip');if(ch)autoPlace(ch.dataset.col);});
+    builder.addEventListener('keydown',e=>{const ch=e.target.closest('.chip');if(ch&&(e.key==='Enter'||e.key===' ')){e.preventDefault();const col=ch.dataset.col;autoPlace(col);const n=$(`.chip[data-col="${col}"]`,c);n&&n.focus();}});
+    builder.addEventListener('dragstart',e=>{const ch=e.target.closest('.chip');if(!ch)return;e.dataTransfer.setData('text/plain',ch.dataset.col);e.dataTransfer.effectAllowed='move';ch.classList.add('dragging');});
+    builder.addEventListener('dragend',e=>{const ch=e.target.closest('.chip');ch&&ch.classList.remove('dragging');$$('.over',c).forEach(x=>x.classList.remove('over'));});
+    builder.addEventListener('dragover',e=>{const z=e.target.closest('[data-zone]');if(!z)return;e.preventDefault();$$('.over',c).forEach(x=>x!==z&&x.classList.remove('over'));z.classList.add('over');});
+    builder.addEventListener('dragleave',e=>{const z=e.target.closest('[data-zone]');if(z&&!z.contains(e.relatedTarget))z.classList.remove('over');});
+    builder.addEventListener('drop',e=>{const z=e.target.closest('[data-zone]');if(!z)return;e.preventDefault();z.classList.remove('over');const col=e.dataTransfer.getData('text/plain');if(!d.chips.includes(col))return;place(col,z.dataset.zone,+z.dataset.i||0);});
+    const pc=$('#part',c);if(pc)pc.onchange=()=>{part=pc.checked;draw();};
+    check.onclick=()=>{
+      if(done)return;done=true;builder.classList.add('locked');check.disabled=true;$$('.chip',c).forEach(x=>x.setAttribute('draggable','false'));
+      const o=d.eval(pl.key,pl.inc,part),pts={best:200,good:120,weak:50,bad:0}[o.grade];
+      const lab={best:['good','Отличный индекс'],good:['mid','Рабочий, но можно лучше'],weak:['mid','Слабовато'],bad:['bad','Не поможет']}[o.grade];
+      const out=$('.outcome',c);
+      out.innerHTML=`<div class="verdict ${lab[0]}"><h3>${lab[1]}</h3><span class="pts${pts?'':' zero'}">+${pts}</span></div>
+        <div class="big-stat">${o.stat}</div><p>${o.text}</p>
+        ${o.grade!=='best'?`<p class="ddl-cap" style="margin-top:14px">Лучший вариант</p><pre class="sql">${hl(d.bestDDL)}</pre>`:''}
+        <div class="next-row"><button class="btn primary">${p+1<PUZZLES.length?'Следующая задача':'Завершить уровень'}</button></div>`;
+      if(pts)addScore(pts,check);
+      $('.next-row button',out).onclick=()=>{p++;p<PUZZLES.length?render():levelEnd(box,3,'Дальше: ловушки',level4);};
+      setTimeout(()=>out.scrollIntoView({block:'nearest',behavior:reduceMotion?'auto':'smooth'}),60);
+    };
+    draw();
+  }
+  render();
+}
+
+/* ---------- level 4 ---------- */
+const QUIZ=[
+  {idx:'CREATE INDEX ON users (email);',sql:"SELECT *\nFROM users\nWHERE lower(email) = 'anna@mail.ru';",
+   opts:['Над колонкой стоит функция, а в индексе лежит email, а не lower(email)','B-tree не умеет работать со строками','У условия слишком низкая селективность','Сначала нужно выполнить VACUUM'],
+   explain:'В индексе лежат исходные значения email, а сравнивается результат функции. Для базы это разные вещи.',fix:'CREATE INDEX ON users (lower(email));'},
+  {idx:'CREATE INDEX ON orders (created_at);',sql:"SELECT *\nFROM orders\nWHERE created_at::date = '2026-09-01';",
+   opts:['Приведение типа над колонкой: условие не sargable','Индекс по timestamptz не поддерживает равенство','Дата передана строкой, а не числом','Здесь нужен составной индекс'],
+   explain:'Приведение ::date выполняется для каждой строки, и индекс по исходному created_at уже не помогает. Условие переписывают в диапазон.',fix:"SELECT *\nFROM orders\nWHERE created_at >= '2026-09-01'\n  AND created_at <  '2026-09-02';"},
+  {idx:'CREATE INDEX ON users (email);',sql:"SELECT *\nFROM users\nWHERE email LIKE '%@mail.ru';",
+   opts:['B-tree ищет по началу строки, а здесь известен только конец','LIKE никогда не использует индексы','LIKE нужно заменить на ILIKE','Индекс устарел, нужен REINDEX'],
+   explain:'B-tree отсортирован по началу строки, а в шаблоне известен только конец. Для поиска по подстроке нужен триграммный GIN-индекс.',fix:"CREATE EXTENSION pg_trgm;\nCREATE INDEX ON users\n  USING gin (email gin_trgm_ops);"},
+  {idx:'CREATE INDEX ON orders (customer_id, created_at);',sql:"SELECT *\nFROM orders\nWHERE created_at > now() - interval '1 day';",
+   opts:['В условии нет первой колонки индекса','now() нельзя использовать вместе с индексами','Сутки — это слишком много строк','Индекс нужно пересоздать через CONCURRENTLY'],
+   explain:'Индекс упорядочен сначала по customer_id. Заказы за сутки разбросаны по всем клиентам, и спуститься к ним по дереву нельзя.',fix:'CREATE INDEX ON orders (created_at);'},
+  {story:'В плане Seq Scan, хотя индекс по status есть. Разработчик хочет «заставить» базу использовать индекс.',q:'Что здесь не так?',
+   idx:'CREATE INDEX ON orders (status);',sql:"SELECT *\nFROM orders\nWHERE status = 'shipped';",
+   opts:['Всё правильно: под условие подходит 95% строк, и Seq Scan дешевле','Индекс по текстовой колонке не работает','Статистика устарела, нужен ANALYZE','Индекс повреждён, нужен REINDEX'],
+   explain:'Индекс не используется, потому что здесь он вреден. Читать через индекс почти всю таблицу дороже, чем прочитать её подряд. Планировщик прав.',fix:"-- чинить нечего.\n-- Индекс по status полезен для редких значений:\nCREATE INDEX ON orders (created_at)\n  WHERE status = 'new';"},
+  {idx:'CREATE INDEX ON orders (amount);',sql:"SELECT *\nFROM orders\nWHERE amount + 100 > 500;",
+   opts:['Арифметика над колонкой: условие нужно переписать','Колонки numeric нельзя индексировать','B-tree не поддерживает оператор >','Под условие подходит слишком много строк'],
+   explain:'База не решает уравнения: amount + 100 для неё новое вычисляемое значение, которого нет в индексе. Арифметику переносят на другую сторону сравнения.',fix:'SELECT *\nFROM orders\nWHERE amount > 400;'},
+  {story:'Вчера заказы клиента 777 массово перенесли в архив. Сегодня его запрос тормозит, а в плане странные цифры.',q:'В чём причина?',
+   idx:'CREATE INDEX ON orders (customer_id);',sql:'SELECT *\nFROM orders\nWHERE customer_id = 777;',plan:'Seq Scan on orders  (rows=480000) (actual rows=12)',
+   opts:['Статистика устарела: база думает, что у клиента ещё 480 000 заказов','Индекс повреждён после массового удаления','Нужен составной индекс','Слишком маленькое значение work_mem'],
+   explain:'Оценка rows=480 000 при реальных 12 — классический признак устаревшей статистики. Autovacuum обновит её сам, но не мгновенно.',fix:'ANALYZE orders;'},
+];
+function level4(){
+  state.level=3;setStep(3);
+  let q=0;const LIMIT=120000;
+  const root=h(`<section class="level">${head(4,'Почему индекс молчит?',`Индекс есть, а запрос всё равно медленный. На каждый вопрос 25 секунд: верный ответ даёт 100 очков и бонус за скорость. Помни про ${T('sargable','sargable-условия')} и ${T('stats','статистику')}.`)}<div id="quiz"></div></section>`);
+  show(root);
+  const box=$('#quiz',root);
+  function render(){
+    const d=QUIZ[q];let done=false,hinted=false,timer=0;
+    const opts=shuffle(d.opts.map((t,i)=>({t,ok:i===0})));
+    const c=h(`<div class="panel">
+      <div class="round-top"><span class="counter">Вопрос ${q+1} из ${QUIZ.length}</span><button class="btn small ghost hint">Убрать два неверных −20</button></div>
+      <div class="timer" role="progressbar" aria-label="Оставшееся время"><div class="fill"></div></div>
+      ${d.story?`<p class="ctx">${d.story}</p>`:''}
+      <div class="code-pair"><div><span class="code-cap">Индекс</span><pre class="sql">${hl(d.idx)}</pre></div><div><span class="code-cap">Запрос</span><pre class="sql">${hl(d.sql)}</pre></div></div>
+      ${d.plan?`<div class="plan-pre"><span class="code-cap">План</span><pre class="sql">${esc(d.plan)}</pre></div>`:''}
+      <p class="question">${d.q||'Почему индекс не используется?'}</p>
+      <div class="options">${opts.map((o,i)=>`<button class="opt" data-i="${i}">${o.t}</button>`).join('')}</div>
+      <div class="outcome"></div></div>`);
+    box.replaceChildren(c);
+    const tb=$('.timer',c),fill=$('.fill',tb),t0=performance.now();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{fill.style.transition=`width ${LIMIT}ms linear`;fill.style.width='0%';}));
+    timer=setInterval(()=>{const el=performance.now()-t0;if(el>LIMIT*0.7)tb.classList.add('low');if(el>=LIMIT)answer(null);},200);
+    const hb=$('.hint',c);
+    hb.onclick=()=>{if(hinted||done)return;hinted=true;hb.disabled=true;addScore(-20,hb);
+      $$('.opt',c).filter(b=>!opts[+b.dataset.i].ok).slice(0,2).forEach(b=>{b.classList.add('gone');b.disabled=true;});};
+    $('.options',c).addEventListener('click',e=>{const b=e.target.closest('.opt');if(b&&!b.disabled)answer(b);});
+    function answer(btn){
+      if(done)return;done=true;clearInterval(timer);hb.disabled=true;
+      const el=Math.min(LIMIT,performance.now()-t0),left=(LIMIT-el)/1000;
+      const w=getComputedStyle(fill).width;fill.style.transition='none';fill.style.width=w;
+      const ok=btn&&opts[+btn.dataset.i].ok,pts=ok?100+Math.round(4*left):0;
+      $$('.opt',c).forEach(b=>{b.disabled=true;if(opts[+b.dataset.i].ok)b.classList.add('correct');else if(b===btn)b.classList.add('wrong');});
+      if(pts)addScore(pts,btn);
+      const title=ok?`Верно, ${left.toFixed(1).replace('.',',')} с в запасе`:btn?'Мимо':'Время вышло';
+      const out=$('.outcome',c);
+      out.innerHTML=`<div class="verdict ${ok?'good':'bad'}"><h3>${title}</h3><span class="pts${pts?'':' zero'}">+${pts}</span></div>
+        <p>${d.explain}</p><p class="ddl-cap" style="margin-top:14px">Как исправить</p><pre class="sql">${hl(d.fix)}</pre>
+        <div class="next-row"><button class="btn primary">${q+1<QUIZ.length?'Следующий вопрос':'Посмотреть итог'}</button></div>`;
+      $('.next-row button',out).onclick=()=>{q++;q<QUIZ.length?render():finale();};
+      setTimeout(()=>out.scrollIntoView({block:'nearest',behavior:reduceMotion?'auto':'smooth'}),60);
+    }
+  }
+  render();
+}
+
+/* ---------- final ---------- */
+function finale(){
+  setStep(4);
+  const s=state.score;let best=0,record=false;
+  try{best=+(localStorage.getItem('indexator-best')||0);if(s>best){record=best>0;localStorage.setItem('indexator-best',String(s));}}catch(e){}
+  const ranks=[[3000,'Сам себе планировщик','Ты думаешь страницами, а не строками. Можно смело разбирать EXPLAIN реальных запросов.'],[2200,'Уверенный B-tree','Основа на месте. Пройди ещё раз ловушки: именно такие ошибки чаще всего тормозят прод.'],[1200,'Bitmap-стажёр','Механика понятна, детали ещё путаются. Самое время повторить всё на стенде в DataGrip.'],[-1e9,'Seq Scan в душе','Ничего страшного. Сыграй ещё раз и заглядывай в подсказки и пояснения к терминам.']];
+  const rk=ranks.find(r=>s>=r[0]);
+  const MAX=[400,1050,800,1400],NAMES=['Спуск по дереву','Планировщик','Составной индекс','Ловушки'];
+  const root=h(`<section class="final">
+    <div class="panel">
+      <div class="final-top"><div class="final-score" id="fs">0</div>
+        <div><p class="muted" style="margin:0 0 4px;font-weight:600">Итог игры</p><div class="rank">${rk[1]}</div><p style="margin:8px 0 0;max-width:52ch">${rk[2]}</p>
+        ${record?'<span class="record">Новый личный рекорд</span>':best&&s<=best?`<p class="muted" style="margin:8px 0 0;font-size:14px">Личный рекорд: ${fmt(best)}</p>`:''}</div></div>
+      <div class="lvl-bars" style="margin-top:26px">${state.levelScores.map((v,i)=>`<div class="cost-row best"><span>${NAMES[i]}</span><div class="track"><div class="fill" style="--w:${Math.max(0,Math.min(100,v/MAX[i]*100))}%"></div></div><b>${fmt(v)}</b></div>`).join('')}</div>
+      ${s<2000?`<div class="panel" style="margin-top:22px;background:var(--gold-soft);border-color:var(--gold-line)">
+        <p style="margin:0 0 8px;font-weight:700">Тема индексов пока даётся непросто — и это нормально</p>
+        <p class="muted" style="margin:0 0 14px">Разобраться и подтянуть скиллы до оффера поможет ментор.</p>
+        <a href="https://2r.ru/specialties/system_analyst/2d8e8acca0299dc774dfd6b3125e6eb9" target="_blank" rel="noopener" class="btn primary">Найти ментора →</a>
+      </div>`:''}
+    </div>
+    <div class="panel">
+      <h3 style="font-size:20px;margin-bottom:6px">Повтори то же самое на своём стенде</h3>
+      <p class="muted" style="margin:0 0 14px">Каждый уровень игры — это запросы, которые можно выполнить в DataGrip на таблице orders.</p>
+      <pre class="sql">${hl(`-- Уровень 1: до и после создания индекса
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM orders WHERE customer_id = 42;
+CREATE INDEX idx_orders_customer_id ON orders (customer_id);
+
+-- Уровень 2: один индекс, разные планы
+CREATE INDEX idx_orders_status ON orders (status);
+EXPLAIN SELECT * FROM orders WHERE status = 'shipped';
+EXPLAIN SELECT * FROM orders WHERE status = 'new';
+
+-- Уровень 3: составной индекс убирает сортировку
+CREATE INDEX idx_orders_cust_created ON orders (customer_id, created_at);
+EXPLAIN SELECT id, amount FROM orders
+WHERE customer_id = 42 AND created_at >= '2026-01-01'
+ORDER BY created_at DESC LIMIT 20;
+
+-- Уровень 4: ловушка с функцией
+EXPLAIN SELECT * FROM orders WHERE lower(email) = 'user42@mail.ru';`)}</pre>
+    </div>
+    <div class="next-row" style="justify-content:flex-start;gap:10px"><button class="btn primary" id="again">Сыграть ещё раз</button><button class="btn ghost" id="toStart">На главный экран</button></div>
+  </section>`);
+  show(root);
+  animateBars($('.lvl-bars',root));
+  const fs=$('#fs',root),t0=performance.now(),d=reduceMotion?1:1400;
+  const step=t=>{const k=Math.min(1,(t-t0)/d);fs.textContent=fmt(s*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step);else burst(fs);};
+  requestAnimationFrame(step);
+  $('#again',root).onclick=()=>{resetGame();level1();};
+  $('#toStart',root).onclick=intro;
+}
+
+/* ---------- background ---------- */
+(function(){
+  const cv=$('#bg'),ctx=cv.getContext('2d');let W=0,H=0,col={},sp=[],raf=0;
+  const readCol=()=>{const cs=getComputedStyle(document.documentElement);col={heap:cs.getPropertyValue('--heap').trim(),index:cs.getPropertyValue('--index').trim()};};
+  const mk=any=>{const z=.35+Math.random()*.65,node=Math.random()<.32;
+    return{x:Math.random()*W,y:any?Math.random()*H:H+70,z,node,w:(node?60:36)*z,h:(node?22:46)*z,vy:.1+.25*z,a:Math.random()*6.28,va:(Math.random()-.5)*.02,
+      label:node?`${rand(1,99)} | ${rand(100,999)}`:`(${rand(0,999)},${rand(1,9)})`};};
+  function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(const s of sp){
+      ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.sin(s.a)*.22);ctx.globalAlpha=.05+.12*s.z;
+      const c=s.node?col.index:col.heap;ctx.strokeStyle=c;ctx.fillStyle=c;ctx.lineWidth=1;
+      rr(-s.w/2,-s.h/2,s.w,s.h,s.node?4:2);ctx.stroke();
+      if(!s.node){for(let i=1;i<4;i++){const y=-s.h/2+i*s.h/4.2;ctx.beginPath();ctx.moveTo(-s.w/2+4,y);ctx.lineTo(s.w/2-4-(i===3?9*s.z:0),y);ctx.stroke();}}
+      ctx.font=`600 ${Math.round(8+4*s.z)}px Manrope, sans-serif`;ctx.textAlign='center';
+      ctx.fillText(s.label,0,s.node?4*s.z:s.h/2+13*s.z);ctx.restore();
+    }
+  }
+  function tick(){for(const s of sp){s.y-=s.vy;s.a+=s.va;if(s.y<-90)Object.assign(s,mk(false));}draw();raf=requestAnimationFrame(tick);}
+  function resize(){const d=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);
+    const n=Math.round(Math.max(12,Math.min(36,W*H/36000)));if(sp.length!==n)sp=Array.from({length:n},()=>mk(true));draw();}
+  readCol();resize();addEventListener('resize',resize);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{readCol();draw();});
+  if(!reduceMotion){raf=requestAnimationFrame(tick);
+    document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(raf);if(!document.hidden)raf=requestAnimationFrame(tick);});}
+})();
+
+intro();
+</script>
+</body>
+</html>
